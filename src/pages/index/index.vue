@@ -99,7 +99,59 @@
           <text class="panel-kicker">PERSONAL PLATE</text>
           <text class="panel-title">个人盘</text>
         </view>
-        <text class="daily-limit">{{ personalMemory?.totalQuestions ? `${personalMemory.totalQuestions}条记忆` : personalInfoReady ? "已填写" : "待填写" }}</text>
+        <view class="panel-side-actions">
+          <button class="plain-button small" @click="openProfileOnboarding">AI建档</button>
+          <text class="daily-limit">{{ personalMemory?.totalQuestions ? `${personalMemory.totalQuestions}条记忆` : personalInfoReady ? "已填写" : "待填写" }}</text>
+        </view>
+      </view>
+      <view v-if="shouldShowOnboarding" class="onboarding-card">
+        <view class="memory-head">
+          <view>
+            <text class="section-title">AI 建档</text>
+            <text class="meta">{{ personalInfoReady ? "补全个人盘资料" : "先用几句话建立个人盘" }}</text>
+          </view>
+          <button v-if="personalInfoReady" class="plain-button small" @click="onboardingOpen = !onboardingOpen">
+            {{ onboardingOpen ? "收起" : "打开" }}
+          </button>
+        </view>
+        <template v-if="onboardingOpen || !personalInfoReady">
+          <view class="onboarding-chat">
+            <view
+              v-for="(message, index) in onboardingMessages"
+              :key="`${message.role}-${index}`"
+              class="onboarding-message"
+              :class="`is-${message.role}`"
+            >
+              <text>{{ message.content }}</text>
+            </view>
+            <view v-if="onboardingLoading" class="onboarding-message is-assistant">
+              <text>正在整理你的资料...</text>
+            </view>
+          </view>
+          <view v-if="onboardingPreviewItems.length" class="onboarding-preview">
+            <text v-for="item in onboardingPreviewItems" :key="item" class="preview-chip">{{ item }}</text>
+          </view>
+          <view class="onboarding-input-row">
+            <textarea
+              v-model="onboardingDraft"
+              class="onboarding-input"
+              auto-height
+              maxlength="260"
+              placeholder="直接回答即可，例如：我是女生，1996年农历八月十五晚上九点左右，常住杭州，最近主要看事业和感情。"
+            />
+            <button class="plain-button small" :disabled="onboardingLoading" @click="submitOnboardingAnswer">
+              发送
+            </button>
+          </view>
+          <view class="onboarding-actions">
+            <button class="primary-action compact-action" :disabled="!onboardingCandidate || personalInfoSaving" @click="saveOnboardingInfo">
+              <text>{{ personalInfoSaving ? "保存中" : onboardingDone ? "保存建档" : "先保存已获取" }}</text>
+              <text class="arrow-line"></text>
+            </button>
+            <button class="plain-button small" :disabled="onboardingLoading" @click="restartOnboarding">重问</button>
+          </view>
+          <text v-if="onboardingError" class="chat-error">{{ onboardingError }}</text>
+        </template>
       </view>
       <view class="memory-panel">
         <view class="memory-head">
@@ -152,6 +204,34 @@
             {{ locationLoading ? "定位中" : locationText || "获取位置" }}
           </button>
         </view>
+      </view>
+      <view class="daily-extra-grid">
+        <view class="field compact">
+          <text class="label">日期类型</text>
+          <picker :range="birthCalendarOptions" range-key="label" :value="birthCalendarIndex" @change="onBirthCalendarChange">
+            <view class="number-input picker-input">{{ birthCalendarLabel }}</view>
+          </picker>
+        </view>
+        <view class="field compact">
+          <text class="label">性别/称谓</text>
+          <picker :range="genderOptions" range-key="label" :value="genderIndex" @change="onGenderChange">
+            <view class="number-input picker-input">{{ genderLabel }}</view>
+          </picker>
+        </view>
+      </view>
+      <view class="daily-extra-grid">
+        <view class="field compact">
+          <text class="label">出生地</text>
+          <input v-model="personalBirthPlace" class="number-input" placeholder="如 湖北武汉" />
+        </view>
+        <view class="field compact">
+          <text class="label">常住地</text>
+          <input v-model="personalCurrentCity" class="number-input" placeholder="如 上海" />
+        </view>
+      </view>
+      <view class="field compact">
+        <text class="label">关注方向</text>
+        <input v-model="personalFocusText" class="number-input" placeholder="如 事业、感情、财务" />
       </view>
       <view class="field compact">
         <text class="label">补充信息</text>
@@ -846,6 +926,17 @@ const methodGuides = [
   }
 ];
 const advancedMethodKeys = ["xiaoliuren", "liuyao", "qimen", "personal"];
+const birthCalendarOptions = [
+  { value: "solar", label: "阳历" },
+  { value: "lunar", label: "农历" },
+  { value: "unknown", label: "不确定" }
+];
+const genderOptions = [
+  { value: "unknown", label: "不限定" },
+  { value: "female", label: "女" },
+  { value: "male", label: "男" },
+  { value: "other", label: "其他" }
+];
 
 const HexCard = defineComponent({
   props: {
@@ -922,12 +1013,25 @@ const selectedGuideKey = ref("xiaoliuren");
 const personalName = ref("");
 const personalBirthDate = ref("");
 const personalBirthTime = ref("12:00");
+const personalBirthCalendar = ref("solar");
+const personalGender = ref("unknown");
+const personalBirthPlace = ref("");
+const personalCurrentCity = ref("");
+const personalFocusText = ref("");
 const personalNote = ref("");
 const personalInfoSaving = ref(false);
 const personalInfoError = ref("");
 const personalMemory = ref(null);
 const personalMemoryLoading = ref(false);
 const personalMemoryError = ref("");
+const onboardingOpen = ref(false);
+const onboardingStarted = ref(false);
+const onboardingMessages = ref([]);
+const onboardingDraft = ref("");
+const onboardingLoading = ref(false);
+const onboardingError = ref("");
+const onboardingCandidate = ref(null);
+const onboardingDone = ref(false);
 const autoLocation = ref(loadJsonStorage("wenshi-auto-location", null));
 const locationLoading = ref(false);
 const locationError = ref("");
@@ -942,6 +1046,12 @@ const currentMethodGuide = computed(() => methodGuides.find((item) => item.key =
 const personalInfoReady = computed(() => Boolean(personalBirthDate.value));
 const hasRequiredPersonalInfo = computed(() => Boolean(personalBirthDate.value));
 const personalInfoSummary = computed(() => buildPersonalInfoSummary());
+const shouldShowOnboarding = computed(() => onboardingOpen.value || !personalInfoReady.value);
+const birthCalendarIndex = computed(() => Math.max(0, birthCalendarOptions.findIndex((item) => item.value === personalBirthCalendar.value)));
+const birthCalendarLabel = computed(() => birthCalendarOptions[birthCalendarIndex.value]?.label || "阳历");
+const genderIndex = computed(() => Math.max(0, genderOptions.findIndex((item) => item.value === personalGender.value)));
+const genderLabel = computed(() => genderOptions[genderIndex.value]?.label || "不限定");
+const onboardingPreviewItems = computed(() => buildOnboardingPreview(onboardingCandidate.value));
 const personalNotices = computed(() => personalMemory.value?.notices || []);
 const memoryStats = computed(() => [
   ...(personalMemory.value?.categoryStats || []).slice(0, 3),
@@ -1040,6 +1150,10 @@ function applyAuthPayload(payload) {
   syncPersonalInfo(payload.user?.personalInfo);
   syncAccountContext();
   loadPersonalMemory();
+  if (!personalInfoReady.value) {
+    activeSection.value = "info";
+    openProfileOnboarding();
+  }
 }
 
 function logout() {
@@ -1066,6 +1180,11 @@ function syncPersonalInfo(info = {}) {
   personalName.value = info.name || personalName.value || "我自己";
   personalBirthDate.value = info.birthDate || "";
   personalBirthTime.value = info.birthTime || "12:00";
+  personalBirthCalendar.value = info.birthCalendar || "solar";
+  personalGender.value = info.gender || "unknown";
+  personalBirthPlace.value = info.birthPlace || "";
+  personalCurrentCity.value = info.currentCity || "";
+  personalFocusText.value = Array.isArray(info.focusAreas) ? info.focusAreas.join("、") : "";
   personalNote.value = info.note || "";
 }
 
@@ -1075,6 +1194,14 @@ function onBirthDateChange(event) {
 
 function onBirthTimeChange(event) {
   personalBirthTime.value = event.detail.value;
+}
+
+function onBirthCalendarChange(event) {
+  personalBirthCalendar.value = birthCalendarOptions[Number(event.detail.value)]?.value || "solar";
+}
+
+function onGenderChange(event) {
+  personalGender.value = genderOptions[Number(event.detail.value)]?.value || "unknown";
 }
 
 function syncAccountContext() {
@@ -1105,17 +1232,136 @@ async function savePersonalInfo() {
       name: personalName.value.trim(),
       birthDate: personalBirthDate.value,
       birthTime: personalBirthTime.value || "12:00",
+      birthCalendar: personalBirthCalendar.value,
+      gender: personalGender.value,
+      birthPlace: personalBirthPlace.value.trim(),
+      currentCity: personalCurrentCity.value.trim(),
+      focusAreas: splitFocusAreas(personalFocusText.value),
       note: personalNote.value.trim()
     });
     user.value = payload.user;
     syncPersonalInfo(payload.user?.personalInfo);
     personalInfoError.value = "个人信息已保存。";
+    onboardingOpen.value = false;
     loadPersonalMemory();
   } catch (error) {
     personalInfoError.value = `保存失败：${error.message}`;
   } finally {
     personalInfoSaving.value = false;
   }
+}
+
+function openProfileOnboarding() {
+  onboardingOpen.value = true;
+  if (!onboardingStarted.value) {
+    requestProfileOnboarding();
+  }
+}
+
+function restartOnboarding() {
+  onboardingStarted.value = false;
+  onboardingMessages.value = [];
+  onboardingDraft.value = "";
+  onboardingCandidate.value = null;
+  onboardingDone.value = false;
+  onboardingError.value = "";
+  requestProfileOnboarding();
+}
+
+async function submitOnboardingAnswer() {
+  const text = onboardingDraft.value.trim();
+  if (!text || onboardingLoading.value) return;
+  onboardingMessages.value = [...onboardingMessages.value, { role: "user", content: text }];
+  onboardingDraft.value = "";
+  await requestProfileOnboarding();
+}
+
+async function requestProfileOnboarding() {
+  if (!authToken.value || onboardingLoading.value) return;
+  onboardingStarted.value = true;
+  onboardingLoading.value = true;
+  onboardingError.value = "";
+  try {
+    const payload = await requestJson("/api/onboarding/profile", {
+      messages: onboardingMessages.value
+    });
+    const reply = String(payload.reply || "").trim();
+    if (reply) {
+      onboardingMessages.value = [...onboardingMessages.value, { role: "assistant", content: reply }];
+    }
+    onboardingCandidate.value = normalizeOnboardingInfo(payload.personalInfo);
+    onboardingDone.value = Boolean(payload.done);
+  } catch (error) {
+    onboardingError.value = `AI 建档失败：${error.message}`;
+  } finally {
+    onboardingLoading.value = false;
+  }
+}
+
+async function saveOnboardingInfo() {
+  const info = normalizeOnboardingInfo(onboardingCandidate.value);
+  if (!info) return;
+  applyPersonalInfoDraft(info);
+  await savePersonalInfo();
+}
+
+function applyPersonalInfoDraft(info) {
+  personalName.value = info.name || personalName.value || "我自己";
+  personalBirthDate.value = info.birthDate || personalBirthDate.value;
+  personalBirthTime.value = info.birthTime || personalBirthTime.value || "12:00";
+  personalBirthCalendar.value = info.birthCalendar || personalBirthCalendar.value || "solar";
+  personalGender.value = info.gender || personalGender.value || "unknown";
+  personalBirthPlace.value = info.birthPlace || personalBirthPlace.value;
+  personalCurrentCity.value = info.currentCity || personalCurrentCity.value;
+  personalFocusText.value = info.focusAreas?.length ? info.focusAreas.join("、") : personalFocusText.value;
+  personalNote.value = info.note || personalNote.value;
+}
+
+function normalizeOnboardingInfo(value) {
+  if (!value || typeof value !== "object") return null;
+  const birthCalendar = ["solar", "lunar", "unknown"].includes(value.birthCalendar) ? value.birthCalendar : "solar";
+  const gender = ["male", "female", "other", "unknown"].includes(value.gender) ? value.gender : "unknown";
+  return {
+    name: String(value.name || "").trim().slice(0, 30),
+    birthDate: /^\d{4}-\d{2}-\d{2}$/.test(String(value.birthDate || "")) ? String(value.birthDate) : "",
+    birthTime: /^\d{2}:\d{2}$/.test(String(value.birthTime || "")) ? String(value.birthTime) : "12:00",
+    birthCalendar,
+    gender,
+    birthPlace: String(value.birthPlace || "").trim().slice(0, 60),
+    currentCity: String(value.currentCity || "").trim().slice(0, 60),
+    focusAreas: Array.isArray(value.focusAreas) ? value.focusAreas.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 5) : [],
+    note: String(value.note || "").trim().slice(0, 160)
+  };
+}
+
+function buildOnboardingPreview(info) {
+  const normalized = normalizeOnboardingInfo(info);
+  if (!normalized) return [];
+  return [
+    normalized.name ? `称呼 ${normalized.name}` : "",
+    normalized.birthDate ? `${getBirthCalendarLabel(normalized.birthCalendar)} ${normalized.birthDate} ${normalized.birthTime}` : "",
+    normalized.gender !== "unknown" ? `称谓 ${getGenderLabel(normalized.gender)}` : "",
+    normalized.birthPlace ? `出生地 ${normalized.birthPlace}` : "",
+    normalized.currentCity ? `常住 ${normalized.currentCity}` : "",
+    normalized.focusAreas.length ? `关注 ${normalized.focusAreas.join("、")}` : "",
+    normalized.note ? normalized.note : ""
+  ].filter(Boolean);
+}
+
+function splitFocusAreas(value) {
+  return String(value || "")
+    .split(/[、,，\s]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+}
+
+function getBirthCalendarLabel(value) {
+  return birthCalendarOptions.find((item) => item.value === value)?.label || "阳历";
+}
+
+function getGenderLabel(value) {
+  return genderOptions.find((item) => item.value === value)?.label || "不限定";
 }
 
 async function loadPersonalMemory() {
@@ -1177,7 +1423,11 @@ function requestLocation(options = {}) {
 function buildPersonalInfoSummary() {
   const parts = [
     personalName.value.trim() ? `称呼：${personalName.value.trim()}` : "",
-    personalBirthDate.value ? `出生：${personalBirthDate.value} ${personalBirthTime.value || "12:00"}` : "",
+    personalBirthDate.value ? `出生：${birthCalendarLabel.value}${personalBirthDate.value} ${personalBirthTime.value || "12:00"}` : "",
+    personalGender.value !== "unknown" ? `称谓：${genderLabel.value}` : "",
+    personalBirthPlace.value.trim() ? `出生地：${personalBirthPlace.value.trim()}` : "",
+    personalCurrentCity.value.trim() ? `常住地：${personalCurrentCity.value.trim()}` : "",
+    splitFocusAreas(personalFocusText.value).length ? `关注：${splitFocusAreas(personalFocusText.value).join("、")}` : "",
     personalNote.value.trim() ? `补充：${personalNote.value.trim()}` : ""
   ].filter(Boolean);
   return parts.join("；");
@@ -2189,6 +2439,13 @@ button:active {
   padding-bottom: 14px;
 }
 
+.panel-side-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
 .panel-head.compact-head {
   padding-bottom: 0;
   border-bottom: 0;
@@ -2403,6 +2660,93 @@ button:active {
     linear-gradient(135deg, rgba(226, 191, 112, 0.12), transparent 50%),
     linear-gradient(315deg, rgba(145, 209, 189, 0.09), transparent 55%),
     rgba(7, 11, 10, 0.48);
+}
+
+.onboarding-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(145, 209, 189, 0.2);
+  border-radius: 8px;
+  padding: 13px;
+  background:
+    linear-gradient(135deg, rgba(145, 209, 189, 0.14), transparent 50%),
+    linear-gradient(315deg, rgba(226, 191, 112, 0.1), transparent 58%),
+    rgba(7, 11, 10, 0.54);
+}
+
+.onboarding-chat {
+  display: grid;
+  max-height: 280px;
+  gap: 8px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.onboarding-message {
+  display: block;
+  width: fit-content;
+  max-width: 88%;
+  border: 1px solid rgba(226, 191, 112, 0.14);
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: #d8cfbb;
+  font-size: 13px;
+  line-height: 1.58;
+  background: rgba(19, 27, 23, 0.78);
+}
+
+.onboarding-message.is-user {
+  justify-self: end;
+  border-color: rgba(145, 209, 189, 0.26);
+  color: #f7efd9;
+  background: rgba(42, 92, 85, 0.34);
+}
+
+.onboarding-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.preview-chip {
+  border: 1px solid rgba(145, 209, 189, 0.2);
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: #d8cfbb;
+  font-size: 12px;
+  line-height: 1.3;
+  background: rgba(145, 209, 189, 0.08);
+}
+
+.onboarding-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.onboarding-input {
+  width: 100%;
+  min-height: 54px;
+  max-height: 118px;
+  border: 1px solid rgba(226, 191, 112, 0.18);
+  border-radius: 8px;
+  padding: 10px 11px;
+  color: #fff7df;
+  font-size: 14px;
+  line-height: 1.55;
+  background: rgba(5, 8, 7, 0.5);
+}
+
+.onboarding-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.compact-action {
+  min-height: 42px;
 }
 
 .memory-head {

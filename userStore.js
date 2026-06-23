@@ -39,10 +39,18 @@ function publicUser(user) {
 }
 
 function normalizePersonalInfo(value = {}) {
+  const rawFocusAreas = Array.isArray(value.focusAreas)
+    ? value.focusAreas
+    : String(value.focusAreas || "").split(/[、,，\s]+/);
   return {
     name: String(value.name || "").trim().slice(0, 30),
     birthDate: /^\d{4}-\d{2}-\d{2}$/.test(String(value.birthDate || "")) ? String(value.birthDate) : "",
     birthTime: /^\d{2}:\d{2}$/.test(String(value.birthTime || "")) ? String(value.birthTime) : "12:00",
+    birthCalendar: ["solar", "lunar", "unknown"].includes(value.birthCalendar) ? value.birthCalendar : "solar",
+    gender: ["male", "female", "other", "unknown"].includes(value.gender) ? value.gender : "unknown",
+    birthPlace: String(value.birthPlace || "").trim().slice(0, 60),
+    currentCity: String(value.currentCity || "").trim().slice(0, 60),
+    focusAreas: rawFocusAreas.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 5),
     note: String(value.note || "").trim().slice(0, 240)
   };
 }
@@ -297,6 +305,11 @@ function buildPersonalMemory(data, user, profile) {
       relation: profile.relation || "本人",
       birthDate: user.personalInfo?.birthDate || "",
       birthTime: user.personalInfo?.birthTime || "12:00",
+      birthCalendar: user.personalInfo?.birthCalendar || "solar",
+      gender: user.personalInfo?.gender || "unknown",
+      birthPlace: user.personalInfo?.birthPlace || "",
+      currentCity: user.personalInfo?.currentCity || "",
+      focusAreas: user.personalInfo?.focusAreas || [],
       note: user.personalInfo?.note || profile.note || ""
     },
     totalQuestions,
