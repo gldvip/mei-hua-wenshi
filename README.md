@@ -50,7 +50,7 @@
 - 本地问事记录，保存在浏览器 localStorage。
 - AI 深断：今日签、梅花易数、小六壬、六爻、奇门、个人盘在结果生成后会自动调用后端 AI 代理生成分段解读，也可手动重跑。
 - AI 继续追问：围绕当前卦继续问不懂的地方，追问会话按卦保存到 localStorage。
-- 问事类后端限频：同一账号一小时一次。
+- 问事类后端限频：默认关闭；需要时可用 `CAST_COOLDOWN_ENABLED=true` 开启同一账号一小时一次。
 
 ## AI 接入
 
@@ -61,6 +61,7 @@ AI_BASE_URL=你的接口地址
 AI_API_KEY=你的 key
 AI_MODEL=你的模型名
 AI_TEMPERATURE=0.72
+CAST_COOLDOWN_ENABLED=false
 ```
 
 当前按常见 OpenAI 风格接口调用：
@@ -73,6 +74,12 @@ POST {baseUrl}/chat/completions
 
 ```text
 POST /api/chat/completions
+```
+
+微信小程序运行时没有同源 `/api`，前端会自动请求：
+
+```text
+https://wenshi.cccode.com.cn/api/...
 ```
 
 ## 部署
@@ -88,13 +95,42 @@ Cloudflare Tunnel 当前公网访问：
 https://wenshi.cccode.com.cn
 ```
 
+## 微信小程序
+
+当前已安装微信小程序编译依赖，可生成标准小程序项目：
+
+```bash
+npm run build:mp-weixin
+```
+
+构建产物：
+
+```text
+dist/build/mp-weixin
+```
+
+本地调试：
+
+1. 在微信公众平台注册小程序并拿到 AppID。
+2. 把 AppID 填到 `src/manifest.json` 的 `mp-weixin.appid`。
+3. 在微信公众平台把 `https://wenshi.cccode.com.cn` 加到 request 合法域名。
+4. 打开微信开发者工具，导入 `dist/build/mp-weixin`。
+5. 在开发者工具里预览、真机调试。
+
+上架流程：
+
+1. 微信开发者工具上传代码。
+2. 微信公众平台填写版本说明，提交审核。
+3. 审核通过后发布。
+4. 如果涉及登录、定位、AI 解读，需要在小程序后台补充隐私协议、服务类目和用户授权说明。
+
 ## 后续计划
 
 1. 进一步优化时间起卦：可继续加入节气、月建等更细的取数依据。
 2. 增加问事验证：准、部分准、不准、未发生。
 3. 继续细化六爻：手动摇卦、装卦、世应、六亲、六神、用神。
 4. 继续细化奇门：三奇六仪、值符值使、节气局数和完整排盘。
-5. 小程序化：把 HTML/CSS/JS 拆成页面、组件和工具函数。
+5. 小程序化后续：把首页继续拆成组件，完善微信登录和服务类目材料。
 
 ## 文件说明
 

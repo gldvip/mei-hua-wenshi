@@ -527,6 +527,7 @@ import { computed, defineComponent, h, ref } from "vue";
 
 const AI_SECTION_TITLES = ["局势", "阻碍", "转机", "应对", "结果倾向"];
 const AI_SECTION_PATTERN = AI_SECTION_TITLES.join("|");
+const API_BASE_URL = "https://wenshi.cccode.com.cn";
 const categories = ["事业", "感情", "财运", "合作", "出行", "其他"];
 const sectionTabs = [
   { key: "daily", label: "今日" },
@@ -1156,7 +1157,7 @@ function requestJson(url, payload, options = {}) {
     };
     if (typeof uni !== "undefined" && uni.request) {
       uni.request({
-        url,
+        url: resolveApiUrl(url),
         method: "POST",
         data: payload,
         header: headers,
@@ -1192,7 +1193,7 @@ function requestGet(url, options = {}) {
     const headers = getAuthHeader(options);
     if (typeof uni !== "undefined" && uni.request) {
       uni.request({
-        url,
+        url: resolveApiUrl(url),
         method: "GET",
         header: headers,
         success: (response) => {
@@ -1223,6 +1224,12 @@ function getAuthHeader(options) {
   return {
     Authorization: `Bearer ${authToken.value}`
   };
+}
+
+function resolveApiUrl(url) {
+  if (/^https?:\/\//.test(url)) return url;
+  if (typeof window === "undefined") return `${API_BASE_URL}${url}`;
+  return url;
 }
 
 function loadDailyOracle() {
