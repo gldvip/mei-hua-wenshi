@@ -32,8 +32,17 @@ function publicUser(user) {
   return {
     id: user.id,
     phone: user.phone,
-    currentProfileId: user.currentProfileId || "",
+    personalInfo: normalizePersonalInfo(user.personalInfo),
     createdAt: user.createdAt
+  };
+}
+
+function normalizePersonalInfo(value = {}) {
+  return {
+    name: String(value.name || "").trim().slice(0, 30),
+    birthDate: /^\d{4}-\d{2}-\d{2}$/.test(String(value.birthDate || "")) ? String(value.birthDate) : "",
+    birthTime: /^\d{2}:\d{2}$/.test(String(value.birthTime || "")) ? String(value.birthTime) : "12:00",
+    note: String(value.note || "").trim().slice(0, 240)
   };
 }
 
@@ -94,6 +103,7 @@ function register({ phone, password }) {
     passwordSalt: passwordData.salt,
     passwordHash: passwordData.hash,
     currentProfileId: "",
+    personalInfo: normalizePersonalInfo({ name: "我自己" }),
     createdAt: now
   };
   const profile = {
@@ -112,8 +122,7 @@ function register({ phone, password }) {
 
   return {
     token: session.token,
-    user: publicUser(user),
-    profiles: [profile]
+    user: publicUser(user)
   };
 }
 
@@ -130,8 +139,7 @@ function login({ phone, password }) {
 
   return {
     token: session.token,
-    user: publicUser(user),
-    profiles: getProfilesForUser(data, user.id)
+    user: publicUser(user)
   };
 }
 
@@ -144,10 +152,6 @@ function getUserByToken(token) {
   const user = data.users.find((item) => item.id === session.userId);
   if (!user) return { error: "用户不存在。" };
   return { data, user };
-}
-
-function getProfilesForUser(data, userId) {
-  return data.profiles.filter((item) => item.userId === userId);
 }
 
 function getCurrentProfile(data, user) {
@@ -169,8 +173,18 @@ function getMe(token) {
   const auth = getUserByToken(token);
   if (auth.error) return auth;
   return {
-    user: publicUser(auth.user),
-    profiles: getProfilesForUser(auth.data, auth.user.id)
+    user: publicUser(auth.user)
+  };
+}
+
+function updatePersonalInfo(token, payload) {
+  const auth = getUserByToken(token);
+  if (auth.error) return auth;
+
+  auth.user.personalInfo = normalizePersonalInfo(payload);
+  writeData(auth.data);
+  return {
+    user: publicUser(auth.user)
   };
 }
 
@@ -247,4 +261,5 @@ module.exports = {
   getMe,
   login,
   register,
+  updatePersonalInfo,
 };

@@ -10,7 +10,7 @@
         <view>
           <text class="eyebrow">MEI HUA WEN SHI</text>
           <text class="title">玄问临占</text>
-          <text class="subtitle">{{ user ? "已登录" : "登录后保存问卜" }}</text>
+          <text class="subtitle">{{ user ? personalName || "已登录" : "登录后保存问卜" }}</text>
         </view>
       </view>
       <view class="topbar-actions">
@@ -74,6 +74,47 @@
       </button>
     </view>
 
+    <view class="personal-panel mobile-section" :class="{ 'is-active': activeSection === 'info' }">
+      <view class="panel-head">
+        <view>
+          <text class="panel-kicker">PERSONAL</text>
+          <text class="panel-title">个人信息</text>
+        </view>
+        <text class="daily-limit">{{ personalInfoReady ? "已填写" : "待填写" }}</text>
+      </view>
+      <view class="daily-extra-grid">
+        <view class="field compact">
+          <text class="label">称呼</text>
+          <input v-model="personalName" class="number-input" placeholder="如 我自己" />
+        </view>
+        <view class="field compact">
+          <text class="label">出生日期</text>
+          <input v-model="personalBirthDate" class="number-input" type="date" />
+        </view>
+      </view>
+      <view class="daily-extra-grid">
+        <view class="field compact">
+          <text class="label">出生时间</text>
+          <input v-model="personalBirthTime" class="number-input" type="time" />
+        </view>
+        <view class="field compact">
+          <text class="label">定位</text>
+          <button class="plain-wide-button location-button" :disabled="locationLoading" @click="requestLocation">
+            {{ locationLoading ? "定位中" : locationText || "获取位置" }}
+          </button>
+        </view>
+      </view>
+      <view class="field compact">
+        <text class="label">补充信息</text>
+        <input v-model="personalNote" class="number-input" placeholder="可选：当前状态、长期背景、关注方向" />
+      </view>
+      <button class="primary-action" :disabled="personalInfoSaving" @click="savePersonalInfo">
+        <text>{{ personalInfoSaving ? "正在保存" : "保存个人信息" }}</text>
+        <text class="arrow-line"></text>
+      </button>
+      <text class="error-text">{{ personalInfoError || locationError }}</text>
+    </view>
+
     <view class="tag-panel">
       <view class="panel-head slim-head">
         <view>
@@ -115,20 +156,15 @@
         />
       </view>
 
-      <view class="daily-extra-grid">
-        <view class="field compact">
-          <text class="label">当前对象</text>
-          <input v-model="dailyProfile" class="number-input" placeholder="如 我自己" :disabled="Boolean(dailyOracle)" />
+      <view class="context-list">
+        <view class="context-row">
+          <text>定位</text>
+          <text>{{ locationText || "未获取" }}</text>
         </view>
-        <view class="field compact">
-          <text class="label">地点</text>
-          <input v-model="dailyLocation" class="number-input" placeholder="如 上海" :disabled="Boolean(dailyOracle)" />
+        <view class="context-row">
+          <text>个人信息</text>
+          <text>{{ personalInfoSummary || "未填写" }}</text>
         </view>
-      </view>
-
-      <view class="field compact">
-        <text class="label">个人信息</text>
-        <input v-model="dailyPersonalInfo" class="number-input" placeholder="可选：出生年、关系、当前状态" :disabled="Boolean(dailyOracle)" />
       </view>
 
       <view class="shake-stage" :class="{ 'is-shaking': dailyDrawing, 'has-result': dailyOracle }">
@@ -205,21 +241,20 @@
             :maxlength="-1"
           />
         </view>
-        <view v-if="advancedMethod === 'personal'" class="daily-extra-grid">
-          <view class="field compact">
-            <text class="label">出生日期</text>
-            <input v-model="advancedBirthDate" class="number-input" type="date" />
+        <view class="context-list">
+          <view class="context-row">
+            <text>定位</text>
+            <text>{{ locationText || "未获取" }}</text>
           </view>
-          <view class="field compact">
-            <text class="label">出生时间</text>
-            <input v-model="advancedBirthTime" class="number-input" type="time" />
+          <view class="context-row">
+            <text>个人信息</text>
+            <text>{{ personalInfoSummary || "未填写" }}</text>
           </view>
         </view>
-        <view class="field compact">
-          <text class="label">地点/背景</text>
-          <input v-model="advancedLocation" class="number-input" placeholder="可选：地点、关系、当前背景" />
+        <view v-if="advancedMethod === 'personal' && !hasRequiredPersonalInfo" class="info-warning">
+          <text>个人盘需要先在“我的”里填写出生日期。</text>
         </view>
-        <button class="primary-action" :disabled="advancedCasting" @click="castAdvanced">
+        <button class="primary-action" :disabled="advancedCasting || !canCastAdvanced" @click="castAdvanced">
           <text>{{ advancedCasting ? "正在推演" : "开始推演" }}</text>
           <text class="arrow-line"></text>
         </button>
@@ -435,7 +470,8 @@ const categories = ["事业", "感情", "财运", "合作", "出行", "其他"];
 const sectionTabs = [
   { key: "daily", label: "今日" },
   { key: "mei", label: "问事" },
-  { key: "methods", label: "方式" }
+  { key: "methods", label: "方式" },
+  { key: "info", label: "我的" }
 ];
 const quickTags = [
   { label: "事业", category: "事业" },
@@ -487,9 +523,6 @@ const numC = ref("");
 const errorText = ref("");
 const casting = ref(false);
 const dailyQuestion = ref("");
-const dailyProfile = ref("");
-const dailyLocation = ref("");
-const dailyPersonalInfo = ref("");
 const dailyOracle = ref(null);
 const dailyDrawing = ref(false);
 const dailyError = ref("");
@@ -512,22 +545,31 @@ const authError = ref("");
 const authLoading = ref(false);
 const authToken = ref(getStorage("auth-token") || "");
 const user = ref(null);
-const profiles = ref([]);
 const selectedTags = ref(loadJsonStorage("wenshi-selected-tags", []));
 const advancedMethod = ref("xiaoliuren");
 const advancedQuestion = ref("");
-const advancedBirthDate = ref("");
-const advancedBirthTime = ref("12:00");
-const advancedLocation = ref("");
 const advancedCasting = ref(false);
 const advancedError = ref("");
 const advancedResult = ref(null);
 const selectedGuideKey = ref("xiaoliuren");
+const personalName = ref("");
+const personalBirthDate = ref("");
+const personalBirthTime = ref("12:00");
+const personalNote = ref("");
+const personalInfoSaving = ref(false);
+const personalInfoError = ref("");
+const autoLocation = ref(loadJsonStorage("wenshi-auto-location", null));
+const locationLoading = ref(false);
+const locationError = ref("");
 
-const currentProfile = computed(() => profiles.value.find((item) => item.id === user.value?.currentProfileId) || profiles.value[0] || null);
 const selectedTagLabels = computed(() => selectedTags.value.filter((label) => quickTags.some((tag) => tag.label === label)));
 const isAdvancedMethod = computed(() => advancedMethodKeys.includes(selectedGuideKey.value));
 const currentMethodGuide = computed(() => methodGuides.find((item) => item.key === advancedMethod.value) || methodGuides[2]);
+const personalInfoReady = computed(() => Boolean(personalBirthDate.value));
+const hasRequiredPersonalInfo = computed(() => Boolean(personalBirthDate.value));
+const personalInfoSummary = computed(() => buildPersonalInfoSummary());
+const locationText = computed(() => formatLocation(autoLocation.value));
+const canCastAdvanced = computed(() => advancedMethod.value !== "personal" || hasRequiredPersonalInfo.value);
 
 const currentSession = computed(() => {
   if (!current.value) return { reading: "", messages: [] };
@@ -574,21 +616,27 @@ function applyAuthPayload(payload) {
   authToken.value = payload.token || authToken.value;
   if (authToken.value) setStorage("auth-token", authToken.value);
   user.value = payload.user;
-  profiles.value = payload.profiles || [];
-  syncProfileContext();
+  syncPersonalInfo(payload.user?.personalInfo);
+  syncAccountContext();
 }
 
 function logout() {
   authToken.value = "";
   user.value = null;
-  profiles.value = [];
   removeStorage("auth-token");
   dailyOracle.value = null;
 }
 
-function syncProfileContext() {
-  dailyProfile.value = dailyProfile.value || "我自己";
+function syncPersonalInfo(info = {}) {
+  personalName.value = info.name || personalName.value || "我自己";
+  personalBirthDate.value = info.birthDate || "";
+  personalBirthTime.value = info.birthTime || "12:00";
+  personalNote.value = info.note || "";
+}
+
+function syncAccountContext() {
   dailyOracle.value = loadDailyOracle();
+  if (!autoLocation.value) requestLocation({ silent: true });
 }
 
 function toggleTag(tag) {
@@ -604,6 +652,85 @@ function toggleTag(tag) {
 function clearTags() {
   selectedTags.value = [];
   removeStorage("wenshi-selected-tags");
+}
+
+async function savePersonalInfo() {
+  personalInfoError.value = "";
+  personalInfoSaving.value = true;
+  try {
+    const payload = await requestJson("/api/user/info", {
+      name: personalName.value.trim(),
+      birthDate: personalBirthDate.value,
+      birthTime: personalBirthTime.value || "12:00",
+      note: personalNote.value.trim()
+    });
+    user.value = payload.user;
+    syncPersonalInfo(payload.user?.personalInfo);
+    personalInfoError.value = "个人信息已保存。";
+  } catch (error) {
+    personalInfoError.value = `保存失败：${error.message}`;
+  } finally {
+    personalInfoSaving.value = false;
+  }
+}
+
+function requestLocation(options = {}) {
+  const silent = options?.silent === true;
+  locationLoading.value = true;
+  if (!silent) locationError.value = "";
+
+  const onSuccess = (coords) => {
+    autoLocation.value = {
+      latitude: Number(coords.latitude),
+      longitude: Number(coords.longitude),
+      accuracy: Number(coords.accuracy || 0),
+      updatedAt: new Date().toISOString()
+    };
+    setJsonStorage("wenshi-auto-location", autoLocation.value);
+    locationError.value = "";
+    locationLoading.value = false;
+  };
+  const onError = (message) => {
+    if (!silent) locationError.value = message || "定位失败，请检查浏览器权限。";
+    locationLoading.value = false;
+  };
+
+  if (typeof uni !== "undefined" && uni.getLocation) {
+    uni.getLocation({
+      type: "wgs84",
+      success: (result) => onSuccess(result),
+      fail: (error) => onError(error.errMsg)
+    });
+    return;
+  }
+
+  if (typeof navigator !== "undefined" && navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => onSuccess(position.coords),
+      (error) => onError(error.message),
+      { enableHighAccuracy: false, maximumAge: 10 * 60 * 1000, timeout: 8000 }
+    );
+    return;
+  }
+
+  onError("当前浏览器不支持定位。");
+}
+
+function buildPersonalInfoSummary() {
+  const parts = [
+    personalName.value.trim() ? `称呼：${personalName.value.trim()}` : "",
+    personalBirthDate.value ? `出生：${personalBirthDate.value} ${personalBirthTime.value || "12:00"}` : "",
+    personalNote.value.trim() ? `补充：${personalNote.value.trim()}` : ""
+  ].filter(Boolean);
+  return parts.join("；");
+}
+
+function formatLocation(value) {
+  if (!value || typeof value !== "object") return "";
+  const latitude = Number(value.latitude);
+  const longitude = Number(value.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return "";
+  return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
 }
 
 function selectMethodGuide(item) {
@@ -655,6 +782,11 @@ async function cast() {
 
 async function castAdvanced() {
   advancedError.value = "";
+  if (!canCastAdvanced.value) {
+    advancedError.value = "个人盘需要先到“我的”填写出生日期。";
+    activeSection.value = "info";
+    return;
+  }
   advancedCasting.value = true;
   try {
     const result = await requestJson("/api/oracle/cast", {
@@ -662,10 +794,11 @@ async function castAdvanced() {
       question: advancedQuestion.value.trim(),
       category: category.value,
       tags: selectedTagLabels.value,
-      location: advancedLocation.value.trim(),
-      profile: dailyProfile.value.trim() || currentProfile.value?.name || "",
-      birthDate: advancedBirthDate.value,
-      birthTime: advancedBirthTime.value
+      location: locationText.value,
+      profile: personalName.value.trim() || "我自己",
+      personalInfo: personalInfoSummary.value,
+      birthDate: personalBirthDate.value,
+      birthTime: personalBirthTime.value || "12:00"
     });
     advancedResult.value = result;
     activeSection.value = "methods";
@@ -686,9 +819,9 @@ async function drawDailyOracle() {
     await wait(1100);
     const result = await requestJson("/api/daily-oracle/cast", {
       question: dailyQuestion.value.trim(),
-      profile: dailyProfile.value.trim(),
-      location: dailyLocation.value.trim(),
-      personalInfo: dailyPersonalInfo.value.trim(),
+      profile: personalName.value.trim() || "我自己",
+      location: locationText.value,
+      personalInfo: personalInfoSummary.value,
       tags: selectedTagLabels.value
     });
     dailyOracle.value = result;
@@ -1244,6 +1377,7 @@ button {
 
 .question-panel,
 .auth-panel,
+.personal-panel,
 .tag-panel,
 .daily-panel,
 .method-guide,
@@ -1266,6 +1400,7 @@ button {
 
 .question-panel,
 .auth-panel,
+.personal-panel,
 .tag-panel,
 .daily-panel,
 .method-guide {
@@ -1276,6 +1411,7 @@ button {
 
 .daily-panel,
 .auth-panel,
+.personal-panel,
 .tag-panel,
 .method-guide {
   margin-bottom: 14px;
@@ -1452,6 +1588,46 @@ button {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.context-list {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(150, 200, 184, 0.16);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(42, 92, 85, 0.1);
+}
+
+.context-row {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 10px;
+  color: #b5ac99;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.context-row text:first-child {
+  color: #96c8b8;
+}
+
+.location-button {
+  width: 100%;
+  padding: 0 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.info-warning {
+  border: 1px solid rgba(232, 162, 141, 0.28);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: #e8a28d;
+  font-size: 13px;
+  line-height: 1.5;
+  background: rgba(185, 95, 78, 0.1);
 }
 
 .compact .label {
@@ -2105,7 +2281,7 @@ button {
     bottom: max(12px, env(safe-area-inset-bottom));
     z-index: 30;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 6px;
     width: min(calc(100vw - 24px), 430px);
     margin: 0 auto;
@@ -2154,6 +2330,7 @@ button {
   }
 
   .question-panel.mobile-section.is-active,
+  .personal-panel.mobile-section.is-active,
   .daily-panel.mobile-section.is-active,
   .method-guide.mobile-section.is-active {
     display: grid !important;
@@ -2189,6 +2366,7 @@ button {
     justify-self: center;
   }
 
+  .personal-panel,
   .tag-panel,
   .daily-panel,
   .method-guide {
@@ -2196,16 +2374,20 @@ button {
     margin-bottom: 0;
   }
 
-  .tag-panel {
+  .personal-panel {
     grid-row: 2;
   }
 
-  .daily-panel {
+  .tag-panel {
     grid-row: 3;
   }
 
-  .method-guide {
+  .daily-panel {
     grid-row: 4;
+  }
+
+  .method-guide {
+    grid-row: 5;
   }
 
   .question-panel,
@@ -2225,6 +2407,7 @@ button {
 
   .question-panel,
   .auth-panel,
+  .personal-panel,
   .tag-panel,
   .daily-panel,
   .method-guide {
