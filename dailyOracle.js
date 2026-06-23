@@ -224,7 +224,8 @@ function castDailyOracle(payload) {
   const location = normalizeOptional(payload.location);
   const personalInfo = normalizeOptional(payload.personalInfo);
   const tags = normalizeTags(payload.tags);
-  const randomSalt = `${Date.now()}-${Math.random()}`;
+  const shakeNumbers = normalizeShakeNumbers(payload.shakeNumbers);
+  const shakeSalt = shakeNumbers.length ? shakeNumbers.join(",") : `${Date.now()}-${Math.random()}`;
   const basis = [
     formatDate(now),
     question,
@@ -232,7 +233,7 @@ function castDailyOracle(payload) {
     location,
     personalInfo,
     tags.join(","),
-    randomSalt
+    shakeSalt
   ].join("|");
   const index = Math.abs(hashText(basis)) % DAILY_SIGNS.length;
   const sign = DAILY_SIGNS[index];
@@ -247,6 +248,7 @@ function castDailyOracle(payload) {
     location,
     personalInfo,
     tags,
+    shakeNumbers,
     signNumber: index + 1,
     totalSigns: DAILY_SIGNS.length,
     sign,
@@ -294,6 +296,14 @@ function formatDateKey(date) {
 function formatDate(date) {
   const pad = (value) => String(value).padStart(2, "0");
   return `${formatDateKey(date)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function normalizeShakeNumbers(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => Number(item))
+    .filter((item) => Number.isFinite(item))
+    .slice(0, 6);
 }
 
 module.exports = {

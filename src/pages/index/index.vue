@@ -223,13 +223,16 @@
           <text class="stick two"></text>
           <text class="stick three"></text>
         </view>
+        <view v-if="!dailyOracle && dailyShakeCount" class="shake-counter">
+          <text>已摇 {{ dailyShakeCount }}/3</text>
+        </view>
         <view v-if="dailyOracle" class="fallen-stick">
           <text>第 {{ dailyOracle.signNumber }} 签</text>
         </view>
       </view>
 
       <button class="primary-action" :disabled="dailyDrawing || Boolean(dailyOracle)" @click="drawDailyOracle">
-        <text>{{ dailyOracle ? "今日签已生成" : dailyDrawing ? "正在摇签" : "摇今日签" }}</text>
+        <text>{{ dailyShakeLabel }}</text>
         <text class="arrow-line"></text>
       </button>
       <text class="error-text">{{ dailyError }}</text>
@@ -358,8 +361,31 @@
         <view v-if="advancedMethod === 'personal' && !hasRequiredPersonalInfo" class="info-warning">
           <text>个人盘需要先在“我的”里填写出生日期。</text>
         </view>
+        <view v-if="needsLiuYaoShake" class="yao-shake-panel">
+          <view class="yao-shake-head">
+            <view>
+              <text class="section-title">手摇六爻</text>
+              <text class="meta">{{ liuYaoShakeComplete ? "六爻已成" : `第 ${liuYaoShakeCount + 1} 爻 / 共 6 爻` }}</text>
+            </view>
+            <button class="plain-button" :disabled="advancedCasting || liuYaoShaking || !liuYaoShakeCount" @click="resetLiuYaoShake">重摇</button>
+          </view>
+          <view class="yao-line-grid">
+            <view
+              v-for="index in 6"
+              :key="index"
+              class="yao-line-cell"
+              :class="{ 'is-filled': Boolean(liuYaoShakeValues[index - 1]) }"
+            >
+              <text>第{{ index }}爻</text>
+              <text>{{ formatYaoValue(liuYaoShakeValues[index - 1]) }}</text>
+            </view>
+          </view>
+          <button class="plain-wide-button" :disabled="advancedCasting || liuYaoShaking || liuYaoShakeComplete" @click="shakeLiuYaoLine">
+            <text>{{ liuYaoShaking ? "正在摇爻" : liuYaoShakeComplete ? "六爻已成" : `摇第 ${liuYaoShakeCount + 1} 爻` }}</text>
+          </button>
+        </view>
         <button class="primary-action" :disabled="advancedCasting || !canCastAdvanced" @click="castAdvanced">
-          <text>{{ advancedCasting ? "正在推演" : "开始推演" }}</text>
+          <text>{{ advancedCastLabel }}</text>
           <text class="arrow-line"></text>
         </button>
         <text class="error-text">{{ advancedError }}</text>
@@ -772,6 +798,7 @@ const casting = ref(false);
 const dailyQuestion = ref("");
 const dailyOracle = ref(null);
 const dailyDrawing = ref(false);
+const dailyShakeValues = ref([]);
 const dailyError = ref("");
 const reviewQuestion = ref("");
 const reviewOracle = ref(null);
@@ -810,6 +837,8 @@ const advancedQuestion = ref("");
 const advancedCasting = ref(false);
 const advancedError = ref("");
 const advancedResult = ref(null);
+const liuYaoShakeValues = ref([]);
+const liuYaoShaking = ref(false);
 const selectedGuideKey = ref("xiaoliuren");
 const personalName = ref("");
 const personalBirthDate = ref("");
@@ -832,7 +861,25 @@ const personalInfoReady = computed(() => Boolean(personalBirthDate.value));
 const hasRequiredPersonalInfo = computed(() => Boolean(personalBirthDate.value));
 const personalInfoSummary = computed(() => buildPersonalInfoSummary());
 const locationText = computed(() => formatLocation(autoLocation.value));
-const canCastAdvanced = computed(() => advancedMethod.value !== "personal" || hasRequiredPersonalInfo.value);
+const dailyShakeCount = computed(() => dailyShakeValues.value.length);
+const dailyShakeLabel = computed(() => {
+  if (dailyOracle.value) return "今日签已生成";
+  if (dailyDrawing.value) return dailyShakeCount.value >= 3 ? "正在取签" : "承签中";
+  return `摇签 ${Math.min(dailyShakeCount.value + 1, 3)}/3`;
+});
+const needsLiuYaoShake = computed(() => advancedMethod.value === "liuyao");
+const liuYaoShakeCount = computed(() => liuYaoShakeValues.value.length);
+const liuYaoShakeComplete = computed(() => liuYaoShakeCount.value >= 6);
+const canCastAdvanced = computed(() => {
+  if (advancedMethod.value === "personal" && !hasRequiredPersonalInfo.value) return false;
+  if (needsLiuYaoShake.value && !liuYaoShakeComplete.value) return false;
+  return true;
+});
+const advancedCastLabel = computed(() => {
+  if (advancedCasting.value) return "正在推演";
+  if (needsLiuYaoShake.value && !liuYaoShakeComplete.value) return `先摇六爻 ${liuYaoShakeCount.value}/6`;
+  return "开始推演";
+});
 const todayKey = computed(() => getTodayKey());
 const showReviewMode = computed(() => miniProgramReviewMode.value && isMiniProgramRuntime());
 
@@ -1043,6 +1090,7 @@ function selectMethodGuide(item) {
   if (methodChanged) {
     advancedError.value = "";
     advancedResult.value = null;
+    resetLiuYaoShake();
     resetAdvancedAiState();
   }
 }
@@ -1101,8 +1149,12 @@ async function cast() {
 async function castAdvanced() {
   advancedError.value = "";
   if (!canCastAdvanced.value) {
-    advancedError.value = "个人盘需要先到“我的”填写出生日期。";
-    activeSection.value = "info";
+    if (advancedMethod.value === "personal" && !hasRequiredPersonalInfo.value) {
+      advancedError.value = "个人盘需要先到“我的”填写出生日期。";
+      activeSection.value = "info";
+    } else if (needsLiuYaoShake.value) {
+      advancedError.value = "六爻需要先手摇满六爻。";
+    }
     return;
   }
   advancedCasting.value = true;
@@ -1116,7 +1168,8 @@ async function castAdvanced() {
       profile: personalName.value.trim() || "我自己",
       personalInfo: personalInfoSummary.value,
       birthDate: personalBirthDate.value,
-      birthTime: personalBirthTime.value || "12:00"
+      birthTime: personalBirthTime.value || "12:00",
+      yaoValues: needsLiuYaoShake.value ? liuYaoShakeValues.value : []
     });
     advancedResult.value = result;
     activeSection.value = "methods";
@@ -1136,13 +1189,18 @@ async function drawDailyOracle() {
 
   dailyDrawing.value = true;
   try {
-    await wait(1100);
+    await wait(360);
+    dailyShakeValues.value = [...dailyShakeValues.value, createShakeNumber(100)];
+    if (dailyShakeValues.value.length < 3) return;
+
+    await wait(520);
     const result = await requestJson("/api/daily-oracle/cast", {
       question: dailyQuestion.value.trim(),
       profile: personalName.value.trim() || "我自己",
       location: locationText.value,
       personalInfo: personalInfoSummary.value,
-      tags: selectedTagLabels.value
+      tags: selectedTagLabels.value,
+      shakeNumbers: dailyShakeValues.value
     });
     dailyOracle.value = result;
     resetDailyAiState();
@@ -1150,9 +1208,27 @@ async function drawDailyOracle() {
     requestDailyAiReading();
   } catch (error) {
     dailyError.value = `摇签失败：${error.message}`;
+    dailyShakeValues.value = [];
   } finally {
     dailyDrawing.value = false;
   }
+}
+
+async function shakeLiuYaoLine() {
+  if (liuYaoShaking.value || liuYaoShakeComplete.value || advancedCasting.value) return;
+  advancedError.value = "";
+  liuYaoShaking.value = true;
+  try {
+    await wait(360);
+    liuYaoShakeValues.value = [...liuYaoShakeValues.value, 6 + createShakeNumber(4)];
+  } finally {
+    liuYaoShaking.value = false;
+  }
+}
+
+function resetLiuYaoShake() {
+  liuYaoShakeValues.value = [];
+  liuYaoShaking.value = false;
 }
 
 async function requestDailyAiReading() {
@@ -1372,6 +1448,23 @@ function getTodayKey() {
 
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function createShakeNumber(modulo) {
+  const now = Date.now();
+  const fineTime = typeof performance !== "undefined" ? Math.floor(performance.now() * 1000) : 0;
+  let entropy = Math.floor(Math.random() * 1000000);
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    const buffer = new Uint32Array(1);
+    crypto.getRandomValues(buffer);
+    entropy = buffer[0];
+  }
+  const countSeed = dailyShakeValues.value.length * 97 + liuYaoShakeValues.value.length * 131;
+  return Math.abs(now + fineTime + entropy + countSeed) % modulo;
+}
+
+function formatYaoValue(value) {
+  return ({ 6: "老阴", 7: "少阳", 8: "少阴", 9: "老阳" })[value] || "待摇";
 }
 
 function buildAiPrompt(result) {
@@ -2276,6 +2369,20 @@ button:active {
   animation: stickLand 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+.shake-counter {
+  position: absolute;
+  z-index: 2;
+  right: 18px;
+  bottom: 18px;
+  border: 1px solid rgba(145, 209, 189, 0.34);
+  border-radius: 999px;
+  padding: 6px 12px;
+  color: #91d1bd;
+  font-size: 12px;
+  background: rgba(7, 11, 10, 0.82);
+  box-shadow: 0 14px 28px -22px rgba(145, 209, 189, 0.72);
+}
+
 .daily-result {
   display: grid;
   gap: 12px;
@@ -2491,6 +2598,60 @@ button:active {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+}
+
+.yao-shake-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(226, 191, 112, 0.18);
+  border-radius: 8px;
+  padding: 12px;
+  background:
+    linear-gradient(135deg, rgba(226, 191, 112, 0.1), transparent 56%),
+    rgba(7, 11, 10, 0.46);
+}
+
+.yao-shake-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.yao-line-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.yao-line-cell {
+  display: grid;
+  min-height: 58px;
+  align-content: center;
+  gap: 5px;
+  border: 1px solid rgba(150, 200, 184, 0.14);
+  border-radius: 8px;
+  padding: 8px;
+  color: #8f8677;
+  background: rgba(246, 240, 223, 0.035);
+}
+
+.yao-line-cell.is-filled {
+  border-color: rgba(226, 191, 112, 0.28);
+  color: #e2bf70;
+  background:
+    linear-gradient(135deg, rgba(226, 191, 112, 0.12), rgba(145, 209, 189, 0.06)),
+    rgba(7, 11, 10, 0.42);
+}
+
+.yao-line-cell text:first-child {
+  color: #9b9384;
+  font-size: 11px;
+}
+
+.yao-line-cell text:last-child {
+  font-size: 14px;
+  font-weight: 750;
 }
 
 .plate-cell {
@@ -3077,6 +3238,10 @@ button:active {
 
   .result-panel.is-empty.mobile-section.is-active {
     display: grid !important;
+  }
+
+  .yao-line-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

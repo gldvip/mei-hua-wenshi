@@ -73,8 +73,9 @@ function castXiaoLiuRen(payload, question) {
 }
 
 function castLiuYao(payload, question) {
+  const manualYaoValues = normalizeYaoValues(payload.yaoValues);
   const seed = hashText(`${question}|${Date.now()}|${Math.random()}|${normalizeTags(payload.tags).join(",")}`);
-  const yaoValues = Array.from({ length: 6 }, (_, index) => 6 + normalizeIndex(seed + index * 7919, 4));
+  const yaoValues = manualYaoValues || Array.from({ length: 6 }, (_, index) => 6 + normalizeIndex(seed + index * 7919, 4));
   const lines = yaoValues.map((value) => (value === 7 || value === 9 ? 1 : 0));
   const changedLines = lines.map((line, index) => (yaoValues[index] === 6 || yaoValues[index] === 9 ? 1 - line : line));
   const moving = yaoValues.map((value, index) => (value === 6 || value === 9 ? index + 1 : 0)).filter(Boolean);
@@ -90,6 +91,7 @@ function castLiuYao(payload, question) {
     verdict: moving.length ? "有动象可看" : "静卦宜守",
     summary: `${original.name}之${changed.name}，${moving.length ? `动爻在第${moving.join("、")}爻` : "无动爻"}。`,
     facts: [
+      ["取爻", manualYaoValues ? "手摇六次成卦" : "系统随机起爻"],
       ["本卦", `${original.name}（${original.fullName}）`],
       ["变卦", `${changed.name}（${changed.fullName}）`],
       ["动爻", moving.length ? `第 ${moving.join("、")} 爻` : "无动爻"],
@@ -101,6 +103,7 @@ function castLiuYao(payload, question) {
       score >= 4 ? "可顺势推进，但要抓动爻对应的关键人或关键节点。" : "不宜急推，先补条件、等明确回应。"
     ],
     extra: {
+      source: manualYaoValues ? "manual-shake" : "system-random",
       original,
       changed,
       lines: yaoValues.map((value, index) => ({
@@ -111,6 +114,12 @@ function castLiuYao(payload, question) {
       }))
     }
   });
+}
+
+function normalizeYaoValues(value) {
+  if (!Array.isArray(value) || value.length !== 6) return null;
+  const values = value.map((item) => Number(item));
+  return values.every((item) => Number.isInteger(item) && item >= 6 && item <= 9) ? values : null;
 }
 
 function castQiMen(payload, question) {
