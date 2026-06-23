@@ -174,55 +174,16 @@ function getMe(token) {
   };
 }
 
-function createProfile(token, payload) {
-  const auth = getUserByToken(token);
-  if (auth.error) return auth;
-
-  const name = String(payload.name || "").trim();
-  if (!name) return { error: "请填写档案名称。" };
-  const now = new Date().toISOString();
-  const profile = {
-    id: crypto.randomUUID(),
-    userId: auth.user.id,
-    name: name.slice(0, 30),
-    relation: String(payload.relation || "").trim().slice(0, 30),
-    note: String(payload.note || "").trim().slice(0, 200),
-    createdAt: now
-  };
-  auth.data.profiles.push(profile);
-  auth.user.currentProfileId = profile.id;
-  writeData(auth.data);
-  return {
-    user: publicUser(auth.user),
-    profiles: getProfilesForUser(auth.data, auth.user.id)
-  };
-}
-
-function setCurrentProfile(token, profileId) {
-  const auth = getUserByToken(token);
-  if (auth.error) return auth;
-
-  const profile = auth.data.profiles.find((item) => item.userId === auth.user.id && item.id === profileId);
-  if (!profile) return { error: "档案不存在。" };
-  auth.user.currentProfileId = profile.id;
-  writeData(auth.data);
-  return {
-    user: publicUser(auth.user),
-    profiles: getProfilesForUser(auth.data, auth.user.id)
-  };
-}
-
 function castDailyOracle(token, payload, castFn) {
   const auth = getUserByToken(token);
   if (auth.error) return auth;
 
   const profile = getCurrentProfile(auth.data, auth.user);
-  if (!profile) return { error: "请先创建问卜档案。" };
+  if (!profile) return { error: "账号初始化失败，请重新登录或注册。" };
 
   const dateKey = getShanghaiDateKey();
   const existing = auth.data.dailyOracles.find((item) =>
     item.userId === auth.user.id
-    && item.profileId === profile.id
     && item.dateKey === dateKey
   );
   if (existing) return { ...existing.result, reused: true };
@@ -249,17 +210,17 @@ function castDivination(token, payload, castFn) {
   if (auth.error) return auth;
 
   const profile = getCurrentProfile(auth.data, auth.user);
-  if (!profile) return { error: "请先创建问卜档案。" };
+  if (!profile) return { error: "账号初始化失败，请重新登录或注册。" };
 
   const now = Date.now();
   const recent = auth.data.divinationRecords
-    .filter((item) => item.userId === auth.user.id && item.profileId === profile.id)
+    .filter((item) => item.userId === auth.user.id)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
   if (recent) {
     const nextAt = new Date(recent.createdAt).getTime() + 60 * 60 * 1000;
     if (nextAt > now) {
       const minutes = Math.ceil((nextAt - now) / 60000);
-      return { error: `同一档案梅花问事建议一小时后再问，还需约 ${minutes} 分钟。` };
+      return { error: `同一账号问事建议一小时后再问，还需约 ${minutes} 分钟。` };
     }
   }
 
@@ -283,9 +244,7 @@ function castDivination(token, payload, castFn) {
 module.exports = {
   castDailyOracle,
   castDivination,
-  createProfile,
   getMe,
   login,
   register,
-  setCurrentProfile
 };

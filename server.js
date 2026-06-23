@@ -173,14 +173,6 @@ async function handleAuth(request, response, action) {
   sendJson(response, output.error ? 400 : 200, output);
 }
 
-async function handleAuthedAction(request, response, action) {
-  const token = getBearerToken(request);
-  const payload = request.method === "POST" ? await readJsonPayload(request, response) : {};
-  if (request.method === "POST" && !payload) return;
-  const output = action(token, payload);
-  sendJson(response, output.error ? 401 : 200, output);
-}
-
 const server = http.createServer(async (request, response) => {
   const { pathname } = new URL(request.url, "http://localhost");
 
@@ -202,16 +194,6 @@ const server = http.createServer(async (request, response) => {
   if (request.method === "GET" && pathname === "/api/auth/me") {
     const output = userStore.getMe(getBearerToken(request));
     sendJson(response, output.error ? 401 : 200, output);
-    return;
-  }
-
-  if (request.method === "POST" && pathname === "/api/profiles") {
-    await handleAuthedAction(request, response, userStore.createProfile);
-    return;
-  }
-
-  if (request.method === "POST" && pathname === "/api/profiles/current") {
-    await handleAuthedAction(request, response, (token, payload) => userStore.setCurrentProfile(token, payload.profileId));
     return;
   }
 

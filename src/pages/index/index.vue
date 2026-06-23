@@ -10,14 +10,17 @@
         <view>
           <text class="eyebrow">MEI HUA WEN SHI</text>
           <text class="title">玄问临占</text>
-          <text class="subtitle">{{ user ? currentProfile?.name || "未选档案" : "登录后保存问卜" }}</text>
+          <text class="subtitle">{{ user ? "已登录" : "登录后保存问卜" }}</text>
         </view>
       </view>
-      <button class="icon-button" aria-label="打开记录" @click="setHistoryOpen(true)">
-        <text class="menu-line"></text>
-        <text class="menu-line"></text>
-        <text class="menu-line"></text>
-      </button>
+      <view class="topbar-actions">
+        <button v-if="user" class="plain-button small topbar-logout" @click="logout">退出</button>
+        <button class="icon-button" aria-label="打开记录" @click="setHistoryOpen(true)">
+          <text class="menu-line"></text>
+          <text class="menu-line"></text>
+          <text class="menu-line"></text>
+        </button>
+      </view>
     </view>
 
     <view v-if="!user" class="auth-panel">
@@ -69,49 +72,6 @@
       >
         {{ item.label }}
       </button>
-    </view>
-
-    <view class="profile-panel mobile-section" :class="{ 'is-active': activeSection === 'profile' }">
-      <view class="panel-head">
-        <view>
-          <text class="panel-kicker">PROFILE</text>
-          <text class="panel-title">当前档案</text>
-        </view>
-        <button class="plain-button" @click="logout">退出</button>
-      </view>
-      <view class="current-profile">
-        <text class="profile-name">{{ currentProfile?.name || "未选择" }}</text>
-        <text class="meta">{{ currentProfile?.relation || "切换问卜对象" }}{{ currentProfile?.note ? ` · ${currentProfile.note}` : "" }}</text>
-      </view>
-      <view class="profile-list">
-        <button
-          v-for="profile in profiles"
-          :key="profile.id"
-          class="profile-chip"
-          :class="{ 'is-active': profile.id === user.currentProfileId }"
-          @click="switchProfile(profile.id)"
-        >
-          {{ profile.name }}
-        </button>
-      </view>
-      <view class="add-profile">
-        <view class="daily-extra-grid">
-          <view class="field compact">
-            <text class="label">新增档案</text>
-            <input v-model="newProfileName" class="number-input" placeholder="如 某合作方" />
-          </view>
-          <view class="field compact">
-            <text class="label">关系</text>
-            <input v-model="newProfileRelation" class="number-input" placeholder="如 合作方" />
-          </view>
-        </view>
-        <view class="field compact">
-          <text class="label">备注</text>
-          <input v-model="newProfileNote" class="number-input" placeholder="可选：行业、背景、当前状态" />
-        </view>
-        <button class="plain-wide-button" :disabled="profileLoading" @click="createProfile">新增并切换</button>
-        <text class="error-text">{{ profileError }}</text>
-      </view>
     </view>
 
     <view class="tag-panel">
@@ -475,7 +435,6 @@ const categories = ["事业", "感情", "财运", "合作", "出行", "其他"];
 const sectionTabs = [
   { key: "daily", label: "今日" },
   { key: "mei", label: "问事" },
-  { key: "profile", label: "档案" },
   { key: "methods", label: "方式" }
 ];
 const quickTags = [
@@ -554,11 +513,6 @@ const authLoading = ref(false);
 const authToken = ref(getStorage("auth-token") || "");
 const user = ref(null);
 const profiles = ref([]);
-const profileLoading = ref(false);
-const profileError = ref("");
-const newProfileName = ref("");
-const newProfileRelation = ref("");
-const newProfileNote = ref("");
 const selectedTags = ref(loadJsonStorage("wenshi-selected-tags", []));
 const advancedMethod = ref("xiaoliuren");
 const advancedQuestion = ref("");
@@ -632,42 +586,8 @@ function logout() {
   dailyOracle.value = null;
 }
 
-async function switchProfile(profileId) {
-  profileError.value = "";
-  try {
-    const payload = await requestJson("/api/profiles/current", { profileId });
-    applyAuthPayload(payload);
-  } catch (error) {
-    profileError.value = error.message;
-  }
-}
-
-async function createProfile() {
-  profileError.value = "";
-  profileLoading.value = true;
-  try {
-    const payload = await requestJson("/api/profiles", {
-      name: newProfileName.value,
-      relation: newProfileRelation.value,
-      note: newProfileNote.value
-    });
-    newProfileName.value = "";
-    newProfileRelation.value = "";
-    newProfileNote.value = "";
-    applyAuthPayload(payload);
-  } catch (error) {
-    profileError.value = error.message;
-  } finally {
-    profileLoading.value = false;
-  }
-}
-
 function syncProfileContext() {
-  const profile = currentProfile.value;
-  if (profile) {
-    dailyProfile.value = profile.name;
-    dailyPersonalInfo.value = profile.note || dailyPersonalInfo.value;
-  }
+  dailyProfile.value = dailyProfile.value || "我自己";
   dailyOracle.value = loadDailyOracle();
 }
 
@@ -926,7 +846,7 @@ function loadDailyOracle() {
 }
 
 function getDailyOracleStorageKey() {
-  return `daily-oracle:${user.value?.id || "guest"}:${currentProfile.value?.id || "default"}:${getTodayKey()}`;
+  return `daily-oracle:${user.value?.id || "guest"}:account:${getTodayKey()}`;
 }
 
 function getTodayKey() {
@@ -1311,9 +1231,19 @@ button {
   background: #dab767;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.topbar-logout {
+  min-width: 54px;
+}
+
 .question-panel,
 .auth-panel,
-.profile-panel,
 .tag-panel,
 .daily-panel,
 .method-guide,
@@ -1336,7 +1266,6 @@ button {
 
 .question-panel,
 .auth-panel,
-.profile-panel,
 .tag-panel,
 .daily-panel,
 .method-guide {
@@ -1347,7 +1276,6 @@ button {
 
 .daily-panel,
 .auth-panel,
-.profile-panel,
 .tag-panel,
 .method-guide {
   margin-bottom: 14px;
@@ -2138,47 +2066,6 @@ button {
   background: rgba(246, 240, 223, 0.045);
 }
 
-.current-profile {
-  display: grid;
-  gap: 6px;
-  border: 1px solid rgba(150, 200, 184, 0.24);
-  border-radius: 8px;
-  padding: 12px;
-  background: rgba(42, 92, 85, 0.14);
-}
-
-.profile-name {
-  color: #fff7df;
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.profile-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.profile-chip {
-  min-height: 36px;
-  border: 1px solid rgba(218, 183, 103, 0.18);
-  border-radius: 999px;
-  padding: 0 12px;
-  color: #b5ac99;
-  background: rgba(246, 240, 223, 0.045);
-}
-
-.profile-chip.is-active {
-  border-color: rgba(150, 200, 184, 0.34);
-  color: #fff7df;
-  background: rgba(42, 92, 85, 0.24);
-}
-
-.add-profile {
-  display: grid;
-  gap: 10px;
-}
-
 .history-item {
   display: grid;
   gap: 8px;
@@ -2218,7 +2105,7 @@ button {
     bottom: max(12px, env(safe-area-inset-bottom));
     z-index: 30;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
     width: min(calc(100vw - 24px), 430px);
     margin: 0 auto;
@@ -2267,7 +2154,6 @@ button {
   }
 
   .question-panel.mobile-section.is-active,
-  .profile-panel.mobile-section.is-active,
   .daily-panel.mobile-section.is-active,
   .method-guide.mobile-section.is-active {
     display: grid !important;
@@ -2303,7 +2189,6 @@ button {
     justify-self: center;
   }
 
-  .profile-panel,
   .tag-panel,
   .daily-panel,
   .method-guide {
@@ -2311,20 +2196,16 @@ button {
     margin-bottom: 0;
   }
 
-  .profile-panel {
+  .tag-panel {
     grid-row: 2;
   }
 
-  .tag-panel {
+  .daily-panel {
     grid-row: 3;
   }
 
-  .daily-panel {
-    grid-row: 4;
-  }
-
   .method-guide {
-    grid-row: 5;
+    grid-row: 4;
   }
 
   .question-panel,
@@ -2344,7 +2225,6 @@ button {
 
   .question-panel,
   .auth-panel,
-  .profile-panel,
   .tag-panel,
   .daily-panel,
   .method-guide {
