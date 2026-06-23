@@ -217,32 +217,21 @@
           :key="item.key"
           class="method-filter"
           :class="{ 'is-active': methodFilter === item.key }"
-          @click="methodFilter = item.key"
+          @click="setMethodFilter(item.key)"
         >
           {{ item.label }}
         </button>
       </view>
-      <view class="method-grid">
+      <view class="method-picker">
         <button
           v-for="item in visibleMethodGuides"
           :key="item.name"
-          class="method-card"
-          :class="{ 'is-ready': item.ready, 'is-selected': selectedGuideKey === item.key }"
+          class="method-option"
+          :class="{ 'is-selected': selectedGuideKey === item.key }"
           @click="selectMethodGuide(item)"
         >
-          <view class="method-row">
-            <text class="method-name">{{ item.name }}</text>
-            <text class="method-status">{{ selectedGuideKey === item.key ? "已选" : item.ready ? "可用" : "后续" }}</text>
-          </view>
-          <view class="method-meta-row">
-            <text>{{ item.speed }}</text>
-            <text>{{ item.depth }}</text>
-            <text>{{ item.input }}</text>
-          </view>
-          <text class="method-fit">{{ item.fit }}</text>
-          <view class="method-scope-row">
-            <text v-for="scope in item.scopes" :key="scope">{{ scope }}</text>
-          </view>
+          <text class="method-name">{{ item.name }}</text>
+          <text class="method-option-meta">{{ item.groupLabel }} · {{ item.speed }} · {{ item.depth }}</text>
         </button>
       </view>
 
@@ -254,12 +243,23 @@
           </view>
           <text class="method-status">{{ selectedMethodGuide.groupLabel }}</text>
         </view>
+        <view class="method-meta-row">
+          <text>{{ selectedMethodGuide.speed }}</text>
+          <text>{{ selectedMethodGuide.depth }}</text>
+          <text>{{ selectedMethodGuide.input }}</text>
+        </view>
         <view class="analysis-grid">
           <view class="fact-row"><text>适合</text><text>{{ selectedMethodGuide.scopes.join("、") }}</text></view>
           <view class="fact-row"><text>需要</text><text>{{ selectedMethodGuide.required }}</text></view>
           <view class="fact-row"><text>起法</text><text>{{ selectedMethodGuide.castMode }}</text></view>
           <view class="fact-row"><text>结果</text><text>{{ selectedMethodGuide.resultShape }}</text></view>
           <view class="fact-row"><text>AI</text><text>{{ selectedMethodGuide.aiFocus }}</text></view>
+        </view>
+        <view v-if="selectedGuideKey === 'daily' || selectedGuideKey === 'mei'" class="method-entry-actions">
+          <button class="primary-action" @click="openSelectedMethod">
+            <text>{{ selectedGuideKey === "daily" ? "进入今日问卜" : "进入梅花问事" }}</text>
+            <text class="arrow-line"></text>
+          </button>
         </view>
       </view>
 
@@ -722,9 +722,7 @@ const locationLoading = ref(false);
 const locationError = ref("");
 
 const selectedTagLabels = computed(() => selectedTags.value.filter((label) => quickTags.some((tag) => tag.label === label)));
-const visibleMethodGuides = computed(() => methodFilter.value === "all"
-  ? methodGuides
-  : methodGuides.filter((item) => item.group === methodFilter.value));
+const visibleMethodGuides = computed(() => getMethodGuidesByFilter(methodFilter.value));
 const selectedMethodGuide = computed(() => methodGuides.find((item) => item.key === selectedGuideKey.value) || methodGuides[0]);
 const isAdvancedMethod = computed(() => advancedMethodKeys.includes(selectedGuideKey.value));
 const currentMethodGuide = computed(() => methodGuides.find((item) => item.key === advancedMethod.value) || methodGuides[2]);
@@ -896,26 +894,44 @@ function formatLocation(value) {
   return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
 }
 
+function getMethodGuidesByFilter(filterKey) {
+  return filterKey === "all"
+    ? methodGuides
+    : methodGuides.filter((item) => item.group === filterKey);
+}
+
+function setMethodFilter(filterKey) {
+  methodFilter.value = filterKey;
+  const nextGuides = getMethodGuidesByFilter(filterKey);
+  const currentStillVisible = nextGuides.some((item) => item.key === selectedGuideKey.value);
+  if (!currentStillVisible && nextGuides[0]) {
+    selectMethodGuide(nextGuides[0]);
+  }
+}
+
 function selectMethodGuide(item) {
-  if (item.key === "daily") {
-    selectedGuideKey.value = "daily";
+  selectedGuideKey.value = item.key;
+  activeSection.value = "methods";
+
+  if (!advancedMethodKeys.includes(item.key)) return;
+  const methodChanged = advancedMethod.value !== item.key;
+  advancedMethod.value = item.key;
+  if (methodChanged) {
+    advancedError.value = "";
+    advancedResult.value = null;
+    resetAdvancedAiState();
+  }
+}
+
+function openSelectedMethod() {
+  if (selectedGuideKey.value === "daily") {
     activeSection.value = "daily";
     return;
   }
 
-  if (item.key === "mei") {
-    selectedGuideKey.value = "mei";
+  if (selectedGuideKey.value === "mei") {
     activeSection.value = "mei";
-    return;
   }
-
-  if (!advancedMethodKeys.includes(item.key)) return;
-  selectedGuideKey.value = item.key;
-  advancedMethod.value = item.key;
-  activeSection.value = "methods";
-  advancedError.value = "";
-  advancedResult.value = null;
-  resetAdvancedAiState();
 }
 
 async function cast() {
@@ -2038,11 +2054,6 @@ button {
   background: rgba(42, 92, 85, 0.18);
 }
 
-.method-grid {
-  display: grid;
-  gap: 10px;
-}
-
 .method-filter-row {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -2065,50 +2076,51 @@ button {
   background: rgba(42, 92, 85, 0.24);
 }
 
-.method-card {
+.method-picker {
   display: grid;
-  gap: 7px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.method-option {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-height: 70px;
   border: 1px solid rgba(218, 183, 103, 0.14);
   border-radius: 8px;
-  padding: 12px;
+  padding: 10px;
   color: inherit;
   text-align: left;
   background: rgba(7, 11, 10, 0.34);
 }
 
-.method-card::after {
+.method-option::after {
   border: 0;
 }
 
-.method-card.is-ready {
-  border-color: rgba(150, 200, 184, 0.28);
-}
-
-.method-card.is-selected {
-  border-color: rgba(218, 183, 103, 0.54);
+.method-option.is-selected {
+  border-color: rgba(218, 183, 103, 0.56);
   background:
     linear-gradient(135deg, rgba(218, 183, 103, 0.16), rgba(42, 92, 85, 0.18)),
     rgba(7, 11, 10, 0.48);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.method-card.is-selected .method-status {
-  border-color: rgba(150, 200, 184, 0.36);
-  color: #96c8b8;
-  background: rgba(42, 92, 85, 0.2);
-}
-
-.method-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
 .method-name {
   color: #fff7df;
   font-size: 15px;
   font-weight: 750;
+}
+
+.method-option-meta {
+  display: block;
+  overflow: hidden;
+  color: #9b9384;
+  font-size: 11px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .method-status {
@@ -2165,6 +2177,11 @@ button {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.method-entry-actions {
+  display: grid;
+  gap: 8px;
 }
 
 .advanced-tool,
@@ -2738,7 +2755,7 @@ button {
     min-height: 96px;
   }
 
-  .method-grid {
+  .method-picker {
     grid-template-columns: 1fr;
   }
 
@@ -2753,7 +2770,7 @@ button {
     gap: 18px;
   }
 
-  .method-grid {
+  .method-picker {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
