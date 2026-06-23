@@ -79,27 +79,16 @@
     </view>
 
     <view v-else-if="!user" class="auth-panel">
-      <view class="panel-head">
+      <view class="panel-head compact-head">
         <view>
           <text class="panel-kicker">ACCOUNT</text>
-          <text class="panel-title">{{ authMode === "login" ? "登录后使用" : "注册账号" }}</text>
+          <text class="panel-title">正在确认登录</text>
         </view>
       </view>
-      <view class="field">
-        <text class="label">手机号</text>
-        <input v-model="authPhone" class="number-input" type="number" placeholder="请输入 11 位手机号" />
-      </view>
-      <view class="field">
-        <text class="label">密码</text>
-        <input v-model="authPassword" class="number-input" password placeholder="至少 6 位" />
-      </view>
-      <text class="error-text">{{ authError }}</text>
-      <button class="primary-action" :disabled="authLoading" @click="submitAuth">
-        <text>{{ authLoading ? "处理中" : authMode === "login" ? "登录" : "注册并登录" }}</text>
+      <text class="helper">未登录时会自动进入登录页。</text>
+      <button class="primary-action" @click="redirectToLogin">
+        <text>去登录</text>
         <text class="arrow-line"></text>
-      </button>
-      <button class="plain-wide-button" @click="toggleAuthMode">
-        {{ authMode === "login" ? "还没有账号，去注册" : "已有账号，去登录" }}
       </button>
     </view>
 
@@ -1008,6 +997,8 @@ async function loadAppConfig() {
     appConfigLoading.value = false;
     if (!showReviewMode.value && authToken.value) {
       loadMe();
+    } else if (!showReviewMode.value) {
+      redirectToLogin();
     }
   }
 }
@@ -1057,6 +1048,18 @@ function logout() {
   personalMemory.value = null;
   removeStorage("auth-token");
   dailyOracle.value = null;
+  redirectToLogin();
+}
+
+function redirectToLogin() {
+  if (showReviewMode.value) return;
+  if (typeof uni !== "undefined" && uni.redirectTo) {
+    uni.redirectTo({ url: "/pages/login/login" });
+    return;
+  }
+  if (typeof window !== "undefined" && !window.location.pathname.includes("/pages/login/login")) {
+    window.location.href = "/pages/login/login";
+  }
 }
 
 function syncPersonalInfo(info = {}) {
