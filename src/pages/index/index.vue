@@ -250,10 +250,13 @@
           <text v-for="item in dailyOracle.reading" :key="item" class="reading-item">{{ item }}</text>
         </view>
         <view class="ai-box">
-          <button v-if="!hasAiContent(dailyAiSections)" class="ai-action" :disabled="dailyAiLoading" @click="requestDailyAiReading">
-            <text>{{ dailyAiLoading ? "正在深断" : "AI 深断" }}</text>
-            <text class="arrow-line"></text>
-          </button>
+          <view class="ai-status" :class="{ 'is-loading': dailyAiLoading }">
+            <view class="ai-status-copy">
+              <text class="ai-status-kicker">AI READING</text>
+              <text class="ai-status-title">{{ dailyAiLoading ? "AI 深断中" : "AI 深断" }}</text>
+            </view>
+            <text class="ai-status-dot"></text>
+          </view>
           <view v-if="dailyAiVisible" class="ai-output">
             <view v-if="dailyAiNote" class="ai-note">{{ dailyAiNote }}</view>
             <view v-else class="ai-report">
@@ -392,10 +395,13 @@
             <text v-for="item in advancedResult.reading" :key="item" class="reading-item">{{ item }}</text>
           </view>
           <view class="ai-box">
-            <button v-if="!hasAiContent(advancedAiSections)" class="ai-action" :disabled="advancedAiLoading" @click="requestAdvancedAiReading">
-              <text>{{ advancedAiLoading ? "正在深断" : "AI 深断" }}</text>
-              <text class="arrow-line"></text>
-            </button>
+            <view class="ai-status" :class="{ 'is-loading': advancedAiLoading }">
+              <view class="ai-status-copy">
+                <text class="ai-status-kicker">AI READING</text>
+                <text class="ai-status-title">{{ advancedAiLoading ? "AI 深断中" : "AI 深断" }}</text>
+              </view>
+              <text class="ai-status-dot"></text>
+            </view>
             <view v-if="advancedAiVisible" class="ai-output">
               <view v-if="advancedAiNote" class="ai-note">{{ advancedAiNote }}</view>
               <view v-else class="ai-report">
@@ -511,10 +517,13 @@
         </view>
 
         <view class="ai-box">
-          <button v-if="!hasAiContent(aiSections)" class="ai-action" :disabled="aiLoading" @click="requestAiReading">
-            <text>{{ aiLoading ? "正在深断" : "AI 深断" }}</text>
-            <text class="arrow-line"></text>
-          </button>
+          <view class="ai-status" :class="{ 'is-loading': aiLoading }">
+            <view class="ai-status-copy">
+              <text class="ai-status-kicker">AI READING</text>
+              <text class="ai-status-title">{{ aiLoading ? "AI 深断中" : "AI 深断" }}</text>
+            </view>
+            <text class="ai-status-dot"></text>
+          </view>
           <view v-if="aiVisible" class="ai-output">
             <view v-if="aiNote" class="ai-note">{{ aiNote }}</view>
             <view v-else class="ai-report">
@@ -1474,10 +1483,6 @@ function buildFollowupContext(result, session) {
 function parseAiSections(text) {
   const paragraphs = splitAiParagraphs(text);
   return paragraphs.length ? [{ title: "", paragraphs }] : [];
-}
-
-function hasAiContent(sections) {
-  return Array.isArray(sections) && sections.some((section) => section.paragraphs?.some(Boolean));
 }
 
 async function revealAiText(content, sections) {
@@ -2510,8 +2515,7 @@ button:active {
   background: rgba(42, 92, 85, 0.1);
 }
 
-.primary-action,
-.ai-action {
+.primary-action {
   position: relative;
   display: flex;
   align-items: center;
@@ -2528,8 +2532,7 @@ button:active {
     inset 0 1px 0 rgba(255, 255, 255, 0.36);
 }
 
-.primary-action::before,
-.ai-action::before {
+.primary-action::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -2538,8 +2541,7 @@ button:active {
   animation: buttonSheen 4.2s ease-in-out infinite;
 }
 
-.primary-action:hover,
-.ai-action:hover {
+.primary-action:hover {
   box-shadow:
     0 28px 58px -28px rgba(226, 191, 112, 0.95),
     inset 0 1px 0 rgba(255, 255, 255, 0.42);
@@ -2547,7 +2549,6 @@ button:active {
 }
 
 .primary-action[disabled],
-.ai-action[disabled],
 .send-button[disabled] {
   cursor: not-allowed;
   filter: grayscale(0.45);
@@ -2570,8 +2571,7 @@ button:active {
   opacity: 0.72;
 }
 
-.primary-action text:first-child,
-.ai-action text:first-child {
+.primary-action text:first-child {
   position: relative;
   z-index: 1;
   padding-left: 18px;
@@ -2800,8 +2800,50 @@ button:active {
   gap: 12px;
 }
 
-.ai-action {
-  min-height: 48px;
+.ai-status {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgba(226, 191, 112, 0.22);
+  border-radius: 8px;
+  padding: 10px 13px 10px 15px;
+  background:
+    linear-gradient(135deg, rgba(226, 191, 112, 0.16), rgba(145, 209, 189, 0.1) 58%, transparent),
+    rgba(7, 11, 10, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 18px 42px -34px rgba(226, 191, 112, 0.68);
+}
+
+.ai-status-copy {
+  display: grid;
+  gap: 3px;
+}
+
+.ai-status-kicker {
+  color: #91d1bd;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.ai-status-title {
+  color: #fff7df;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.ai-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #e2bf70;
+  box-shadow: 0 0 0 6px rgba(226, 191, 112, 0.1), 0 0 18px rgba(226, 191, 112, 0.64);
+}
+
+.ai-status.is-loading .ai-status-dot {
+  animation: aiStatusPulse 1.15s ease-in-out infinite;
 }
 
 .ai-section,
@@ -3258,6 +3300,19 @@ button:active {
   }
 }
 
+@keyframes aiStatusPulse {
+  0%,
+  100% {
+    opacity: 0.48;
+    transform: scale(0.84);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .page-shell::after,
   .brand-mark,
@@ -3265,7 +3320,7 @@ button:active {
   .shake-stage::after,
   .sigil,
   .primary-action::before,
-  .ai-action::before,
+  .ai-status.is-loading .ai-status-dot,
   .is-shaking .tube,
   .is-shaking .stick.two,
   .fallen-stick {
