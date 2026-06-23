@@ -181,6 +181,11 @@ async function handleUpdatePersonalInfo(request, response) {
   sendJson(response, output.error ? 401 : 200, output);
 }
 
+function handlePersonalMemory(request, response) {
+  const output = userStore.getPersonalMemory(getBearerToken(request));
+  sendJson(response, output.error ? 401 : 200, output);
+}
+
 const server = http.createServer(async (request, response) => {
   const { pathname } = new URL(request.url, "http://localhost");
 
@@ -214,6 +219,11 @@ const server = http.createServer(async (request, response) => {
 
   if (request.method === "POST" && pathname === "/api/user/info") {
     await handleUpdatePersonalInfo(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && pathname === "/api/personal-memory") {
+    handlePersonalMemory(request, response);
     return;
   }
 

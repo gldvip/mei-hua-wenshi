@@ -107,10 +107,32 @@
     <view class="personal-panel mobile-section" :class="{ 'is-active': activeSection === 'info' }">
       <view class="panel-head">
         <view>
-          <text class="panel-kicker">PERSONAL</text>
-          <text class="panel-title">个人信息</text>
+          <text class="panel-kicker">PERSONAL PLATE</text>
+          <text class="panel-title">个人盘</text>
         </view>
-        <text class="daily-limit">{{ personalInfoReady ? "已填写" : "待填写" }}</text>
+        <text class="daily-limit">{{ personalMemory?.totalQuestions ? `${personalMemory.totalQuestions}条记忆` : personalInfoReady ? "已填写" : "待填写" }}</text>
+      </view>
+      <view class="memory-panel">
+        <view class="memory-head">
+          <view>
+            <text class="section-title">记忆与主动提醒</text>
+            <text class="meta">{{ personalMemory ? `更新于 ${formatDate(personalMemory.updatedAt)}` : "随着问卜记录逐步形成" }}</text>
+          </view>
+          <button class="plain-button small" :disabled="personalMemoryLoading" @click="loadPersonalMemory">
+            {{ personalMemoryLoading ? "刷新中" : "刷新" }}
+          </button>
+        </view>
+        <text class="memory-summary">{{ personalMemory?.memoryText || "先填写个人信息，并完成几次问卜，我会逐步记住你的关注主题、近期阻碍和可推进窗口。" }}</text>
+        <view v-if="personalNotices.length" class="notice-list">
+          <view v-for="notice in personalNotices" :key="notice.title" class="notice-card" :class="`is-${notice.level}`">
+            <text>{{ notice.title }}</text>
+            <text>{{ notice.body }}</text>
+          </view>
+        </view>
+        <view v-if="memoryStats.length" class="memory-stat-row">
+          <text v-for="item in memoryStats" :key="item.label">{{ item.label }} {{ item.count }}</text>
+        </view>
+        <text v-if="personalMemoryError" class="chat-error">{{ personalMemoryError }}</text>
       </view>
       <view class="daily-extra-grid">
         <view class="field compact">
@@ -689,7 +711,7 @@ const sectionTabs = [
   { key: "daily", label: "今日" },
   { key: "mei", label: "问事" },
   { key: "methods", label: "方式" },
-  { key: "info", label: "我的" }
+  { key: "info", label: "个人盘" }
 ];
 const quickTags = [
   { label: "事业", category: "事业" },
@@ -914,6 +936,9 @@ const personalBirthTime = ref("12:00");
 const personalNote = ref("");
 const personalInfoSaving = ref(false);
 const personalInfoError = ref("");
+const personalMemory = ref(null);
+const personalMemoryLoading = ref(false);
+const personalMemoryError = ref("");
 const autoLocation = ref(loadJsonStorage("wenshi-auto-location", null));
 const locationLoading = ref(false);
 const locationError = ref("");
@@ -928,6 +953,11 @@ const currentMethodGuide = computed(() => methodGuides.find((item) => item.key =
 const personalInfoReady = computed(() => Boolean(personalBirthDate.value));
 const hasRequiredPersonalInfo = computed(() => Boolean(personalBirthDate.value));
 const personalInfoSummary = computed(() => buildPersonalInfoSummary());
+const personalNotices = computed(() => personalMemory.value?.notices || []);
+const memoryStats = computed(() => [
+  ...(personalMemory.value?.categoryStats || []).slice(0, 3),
+  ...(personalMemory.value?.methodStats || []).slice(0, 2)
+]);
 const locationText = computed(() => formatLocation(autoLocation.value));
 const dailyShakeCount = computed(() => dailyShakeValues.value.length);
 const dailyShakeLabel = computed(() => {
@@ -1018,11 +1048,13 @@ function applyAuthPayload(payload) {
   user.value = payload.user;
   syncPersonalInfo(payload.user?.personalInfo);
   syncAccountContext();
+  loadPersonalMemory();
 }
 
 function logout() {
   authToken.value = "";
   user.value = null;
+  personalMemory.value = null;
   removeStorage("auth-token");
   dailyOracle.value = null;
 }
@@ -1075,10 +1107,25 @@ async function savePersonalInfo() {
     user.value = payload.user;
     syncPersonalInfo(payload.user?.personalInfo);
     personalInfoError.value = "个人信息已保存。";
+    loadPersonalMemory();
   } catch (error) {
     personalInfoError.value = `保存失败：${error.message}`;
   } finally {
     personalInfoSaving.value = false;
+  }
+}
+
+async function loadPersonalMemory() {
+  if (!authToken.value || !user.value) return;
+  personalMemoryLoading.value = true;
+  personalMemoryError.value = "";
+  try {
+    const payload = await requestGet("/api/personal-memory");
+    personalMemory.value = payload.memory || null;
+  } catch (error) {
+    personalMemoryError.value = `记忆加载失败：${error.message}`;
+  } finally {
+    personalMemoryLoading.value = false;
   }
 }
 
@@ -1214,6 +1261,7 @@ async function cast() {
     activeSection.value = "mei";
     resetAiState();
     saveResult(result);
+    loadPersonalMemory();
     requestAiReading();
   } catch (error) {
     errorText.value = `起卦失败：${error.message}`;
@@ -1251,6 +1299,7 @@ async function castAdvanced() {
     activeSection.value = "methods";
     resetAdvancedAiState();
     saveResult(result);
+    loadPersonalMemory();
     requestAdvancedAiReading();
   } catch (error) {
     advancedError.value = `推演失败：${error.message}`;
@@ -1281,6 +1330,7 @@ async function drawDailyOracle() {
     dailyOracle.value = result;
     resetDailyAiState();
     setJsonStorage(getDailyOracleStorageKey(), result);
+    loadPersonalMemory();
     requestDailyAiReading();
   } catch (error) {
     dailyError.value = `摇签失败：${error.message}`;
@@ -2338,6 +2388,87 @@ button:active {
   border-radius: 8px;
   padding: 10px 12px;
   background: rgba(42, 92, 85, 0.1);
+}
+
+.memory-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(226, 191, 112, 0.18);
+  border-radius: 8px;
+  padding: 13px;
+  background:
+    linear-gradient(135deg, rgba(226, 191, 112, 0.12), transparent 50%),
+    linear-gradient(315deg, rgba(145, 209, 189, 0.09), transparent 55%),
+    rgba(7, 11, 10, 0.48);
+}
+
+.memory-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.memory-summary {
+  color: #d4cab2;
+  font-size: 14px;
+  line-height: 1.72;
+}
+
+.notice-list {
+  display: grid;
+  gap: 8px;
+}
+
+.notice-card {
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(150, 200, 184, 0.16);
+  border-radius: 8px;
+  padding: 10px 11px;
+  background: rgba(42, 92, 85, 0.12);
+}
+
+.notice-card text:first-child {
+  color: #fff7df;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.notice-card text:last-child {
+  color: #b5ac99;
+  font-size: 13px;
+  line-height: 1.58;
+}
+
+.notice-card.is-risk {
+  border-color: rgba(232, 162, 141, 0.28);
+  background: rgba(185, 95, 78, 0.12);
+}
+
+.notice-card.is-good {
+  border-color: rgba(226, 191, 112, 0.3);
+  background: rgba(226, 191, 112, 0.1);
+}
+
+.notice-card.is-warning {
+  border-color: rgba(226, 191, 112, 0.24);
+  background: rgba(226, 191, 112, 0.08);
+}
+
+.memory-stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.memory-stat-row text {
+  border: 1px solid rgba(226, 191, 112, 0.16);
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: #e2bf70;
+  font-size: 12px;
+  background: rgba(226, 191, 112, 0.07);
 }
 
 .context-row {
