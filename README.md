@@ -12,6 +12,12 @@
 
 ## 已实现
 
+- 首页“今日问卜”：
+  - 可结合今日所问、当前对象、地点、个人信息。
+  - 后端随机摇签并返回解签。
+  - 前端有摇签动画。
+  - 每日签结果保存在本地，当日再次打开默认复看。
+- 问卜方式说明：展示今日签、梅花易数、小六壬、六爻、奇门、个人盘分别适合的问题类型。
 - 所问之事输入。
 - 事项分类：事业、感情、财运、合作、出行、其他。
 - 起卦方式：
@@ -68,6 +74,7 @@ POST /api/chat/completions
 - `src/pages.json` / `src/manifest.json`：uni-app 页面和平台配置。
 - `index.html` / `vite.config.js`：H5 构建入口和 Vite 配置。
 - `divination.js`：后端起卦、排卦、体用、生克、断语规则。
+- `dailyOracle.js`：后端今日摇签签文库和解签规则。
 - `server.js`：AI 后端代理，不把 key 暴露给浏览器。
 - `package.json`：uni-app + Vue 3 前端依赖和构建脚本。
 - `Dockerfile` / `Dockerfile.api` / `docker-compose.yml`：前端静态服务和 AI 代理部署配置。

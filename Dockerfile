@@ -3,7 +3,7 @@ FROM docker.m.daocloud.io/library/node:20-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
-COPY index.html vite.config.js ./
+COPY index.html vite.config.mjs ./
 COPY src ./src
 RUN npm run build:h5
 

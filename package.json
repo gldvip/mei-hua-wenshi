@@ -2,7 +2,6 @@
   "name": "mei-hua-wenshi",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev:h5": "uni -p h5",
     "build:h5": "uni build -p h5"

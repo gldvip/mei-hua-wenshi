@@ -31,6 +31,20 @@ file:///Users/luck/cccode/mei-hua-wenshi/index.html
 ## 当前已实现
 
 - 手机端玄幻风界面。
+- 首页今日问卜：
+  - 今日所问
+  - 当前对象
+  - 地点
+  - 个人信息
+  - 摇签动画
+  - 当日签保存和复看
+- 问卜方式说明：
+  - 今日签
+  - 梅花易数
+  - 小六壬
+  - 六爻
+  - 奇门
+  - 个人盘
 - 事项输入。
 - 分类选择：
   - 事业
@@ -148,6 +162,7 @@ index.html      H5 构建入口
 vite.config.js  uni-app Vite 配置
 package.json    uni-app + Vue 3 依赖和脚本
 divination.js   后端起卦、排卦、体用、生克、断语规则
+dailyOracle.js  后端今日摇签签文库和解签规则
 server.js       后端接口：起卦计算和 AI 代理
 Dockerfile      前端 H5 构建 + nginx 镜像
 Dockerfile.api  后端 AI 代理镜像
@@ -162,6 +177,8 @@ HANDOFF.md      当前交接说明
 用浏览器手机视口验证过：
 
 - 起卦能正常生成结果。
+- 今日问卜能摇签、展示解签，并保存当日结果。
+- 首页展示各问卜方式适合的问题类型。
 - 时间起卦显示农历年、月、日和时辰数。
 - 时间起卦默认不显示数字输入。
 - 数字起卦切换正常。

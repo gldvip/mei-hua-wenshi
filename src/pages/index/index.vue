@@ -10,7 +10,103 @@
       </button>
     </view>
 
+    <view class="daily-panel">
+      <view class="panel-head">
+        <view>
+          <text class="panel-kicker">TODAY</text>
+          <text class="panel-title">今日问卜</text>
+        </view>
+        <text class="daily-limit">{{ dailyOracle ? "今日已定" : "一日一签" }}</text>
+      </view>
+
+      <view class="field">
+        <text class="label">今日所问</text>
+        <textarea
+          v-model="dailyQuestion"
+          class="question-input daily-input"
+          placeholder="可写具体一问，也可留空看今日总体。"
+          :maxlength="-1"
+          :disabled="Boolean(dailyOracle)"
+        />
+      </view>
+
+      <view class="daily-extra-grid">
+        <view class="field compact">
+          <text class="label">当前对象</text>
+          <input v-model="dailyProfile" class="number-input" placeholder="如 我自己" :disabled="Boolean(dailyOracle)" />
+        </view>
+        <view class="field compact">
+          <text class="label">地点</text>
+          <input v-model="dailyLocation" class="number-input" placeholder="如 上海" :disabled="Boolean(dailyOracle)" />
+        </view>
+      </view>
+
+      <view class="field compact">
+        <text class="label">个人信息</text>
+        <input v-model="dailyPersonalInfo" class="number-input" placeholder="可选：出生年、关系、当前状态" :disabled="Boolean(dailyOracle)" />
+      </view>
+
+      <view class="shake-stage" :class="{ 'is-shaking': dailyDrawing, 'has-result': dailyOracle }">
+        <view class="tube">
+          <text class="stick one"></text>
+          <text class="stick two"></text>
+          <text class="stick three"></text>
+        </view>
+        <view v-if="dailyOracle" class="fallen-stick">
+          <text>第 {{ dailyOracle.signNumber }} 签</text>
+        </view>
+      </view>
+
+      <button class="primary-action" :disabled="dailyDrawing || Boolean(dailyOracle)" @click="drawDailyOracle">
+        <text>{{ dailyOracle ? "今日签已生成" : dailyDrawing ? "正在摇签" : "摇今日签" }}</text>
+        <text class="arrow-line"></text>
+      </button>
+      <text class="error-text">{{ dailyError }}</text>
+
+      <view v-if="dailyOracle" class="daily-result">
+        <view class="daily-sign-head">
+          <view>
+            <text class="daily-sign-name">{{ dailyOracle.sign.name }}</text>
+            <text class="meta">{{ dailyOracle.dateKey }} · {{ dailyOracle.sign.fortune }} · 第 {{ dailyOracle.signNumber }}/{{ dailyOracle.totalSigns }} 签</text>
+          </view>
+          <text class="verdict-badge">{{ dailyOracle.sign.fortune }}</text>
+        </view>
+        <text class="daily-poem">{{ dailyOracle.sign.poem }}</text>
+        <view class="keyword-row">
+          <text v-for="keyword in dailyOracle.sign.keywords" :key="keyword">{{ keyword }}</text>
+        </view>
+        <view class="reading-list">
+          <text v-for="item in dailyOracle.reading" :key="item" class="reading-item">{{ item }}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="method-guide">
+      <view class="panel-head">
+        <view>
+          <text class="panel-kicker">METHODS</text>
+          <text class="panel-title">问卜方式</text>
+        </view>
+      </view>
+      <view class="method-grid">
+        <view v-for="item in methodGuides" :key="item.name" class="method-card" :class="{ 'is-ready': item.ready }">
+          <view class="method-row">
+            <text class="method-name">{{ item.name }}</text>
+            <text class="method-status">{{ item.ready ? "可用" : "后续" }}</text>
+          </view>
+          <text class="method-fit">{{ item.fit }}</text>
+        </view>
+      </view>
+    </view>
+
     <view class="question-panel">
+      <view class="panel-head compact-head">
+        <view>
+          <text class="panel-kicker">MEI HUA</text>
+          <text class="panel-title">梅花易数问事</text>
+        </view>
+      </view>
+
       <view class="field">
         <text class="label">所问之事</text>
         <textarea
@@ -175,6 +271,14 @@ import { computed, defineComponent, h, ref } from "vue";
 const AI_SECTION_TITLES = ["局势", "阻碍", "转机", "应对", "结果倾向"];
 const AI_SECTION_PATTERN = AI_SECTION_TITLES.join("|");
 const categories = ["事业", "感情", "财运", "合作", "出行", "其他"];
+const methodGuides = [
+  { name: "今日签", ready: true, fit: "适合今日状态、轻量提醒、当天宜忌与行动校准。" },
+  { name: "梅花易数", ready: true, fit: "适合一事一问、临时起意、看当前气机和走势。" },
+  { name: "小六壬", ready: false, fit: "适合快速判断来不来、成不成、等不等、去不去。" },
+  { name: "六爻", ready: false, fit: "适合重要事项、关系复杂、要看用神细节和应期。" },
+  { name: "奇门", ready: false, fit: "适合行动策略、方位选择、布局和大方向判断。" },
+  { name: "个人盘", ready: false, fit: "适合长期背景、阶段趋势和个人状态，不适合临时小事。" }
+];
 
 const HexCard = defineComponent({
   props: {
@@ -203,6 +307,13 @@ const numB = ref("");
 const numC = ref("");
 const errorText = ref("");
 const casting = ref(false);
+const dailyQuestion = ref("");
+const dailyProfile = ref("");
+const dailyLocation = ref("");
+const dailyPersonalInfo = ref("");
+const dailyOracle = ref(loadDailyOracle());
+const dailyDrawing = ref(false);
+const dailyError = ref("");
 const current = ref(null);
 const history = ref(loadJsonStorage("mei-hua-history", []));
 const aiSessions = ref(loadJsonStorage("mei-hua-ai-sessions", {}));
@@ -241,6 +352,28 @@ async function cast() {
     errorText.value = `起卦失败：${error.message}`;
   } finally {
     casting.value = false;
+  }
+}
+
+async function drawDailyOracle() {
+  dailyError.value = "";
+  if (dailyOracle.value) return;
+
+  dailyDrawing.value = true;
+  try {
+    await wait(1100);
+    const result = await requestJson("/api/daily-oracle/cast", {
+      question: dailyQuestion.value.trim(),
+      profile: dailyProfile.value.trim(),
+      location: dailyLocation.value.trim(),
+      personalInfo: dailyPersonalInfo.value.trim()
+    });
+    dailyOracle.value = result;
+    setJsonStorage(getDailyOracleStorageKey(), result);
+  } catch (error) {
+    dailyError.value = `摇签失败：${error.message}`;
+  } finally {
+    dailyDrawing.value = false;
   }
 }
 
@@ -344,6 +477,25 @@ function requestJson(url, payload) {
       .then(resolve)
       .catch(reject);
   });
+}
+
+function loadDailyOracle() {
+  const value = loadJsonStorage(getDailyOracleStorageKey(), null);
+  return value?.dateKey === getTodayKey() ? value : null;
+}
+
+function getDailyOracleStorageKey() {
+  return `daily-oracle:${getTodayKey()}`;
+}
+
+function getTodayKey() {
+  const date = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function buildAiPrompt(result) {
@@ -648,6 +800,8 @@ button {
 }
 
 .question-panel,
+.daily-panel,
+.method-guide,
 .result-panel {
   border: 1px solid rgba(218, 190, 126, 0.18);
   border-radius: 8px;
@@ -658,10 +812,62 @@ button {
   backdrop-filter: blur(18px);
 }
 
-.question-panel {
+.question-panel,
+.daily-panel,
+.method-guide {
   display: grid;
   gap: 18px;
   padding: 18px;
+}
+
+.daily-panel,
+.method-guide {
+  margin-bottom: 14px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  border-bottom: 1px solid rgba(218, 190, 126, 0.18);
+  padding-bottom: 14px;
+}
+
+.panel-head.compact-head {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.panel-kicker,
+.panel-title,
+.daily-limit {
+  display: block;
+}
+
+.panel-kicker {
+  margin-bottom: 5px;
+  color: #7aa99a;
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+
+.panel-title {
+  color: #f2ead9;
+  font-size: 19px;
+  font-weight: 750;
+  line-height: 1.15;
+}
+
+.daily-limit {
+  flex: 0 0 auto;
+  border: 1px solid rgba(122, 169, 154, 0.3);
+  border-radius: 999px;
+  padding: 6px 9px;
+  color: #7aa99a;
+  font-size: 12px;
+  background: rgba(122, 169, 154, 0.09);
 }
 
 .field {
@@ -697,6 +903,10 @@ button {
   min-height: 112px;
   padding: 13px 14px;
   line-height: 1.6;
+}
+
+.daily-input {
+  min-height: 86px;
 }
 
 .number-input {
@@ -742,6 +952,12 @@ button {
   gap: 10px;
 }
 
+.daily-extra-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .compact .label {
   color: #a9a090;
   font-size: 12px;
@@ -752,6 +968,172 @@ button {
   min-height: 18px;
   color: #e8a28d;
   font-size: 13px;
+}
+
+.shake-stage {
+  position: relative;
+  display: grid;
+  min-height: 126px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(214, 173, 97, 0.14);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(214, 173, 97, 0.08), transparent 48%),
+    rgba(17, 17, 15, 0.38);
+}
+
+.tube {
+  position: relative;
+  width: 78px;
+  height: 88px;
+  border: 1px solid rgba(214, 173, 97, 0.42);
+  border-radius: 12px 12px 22px 22px;
+  background:
+    linear-gradient(90deg, transparent 0 18%, rgba(214, 173, 97, 0.16) 18% 22%, transparent 22% 78%, rgba(214, 173, 97, 0.12) 78% 82%, transparent 82%),
+    rgba(20, 19, 16, 0.9);
+  box-shadow: inset 0 -12px 20px rgba(214, 173, 97, 0.08);
+  transform-origin: 50% 90%;
+}
+
+.is-shaking .tube {
+  animation: shakeTube 110ms ease-in-out infinite alternate;
+}
+
+.stick {
+  position: absolute;
+  top: -22px;
+  width: 5px;
+  height: 70px;
+  border-radius: 999px;
+  background: linear-gradient(#f2ead9, #d6ad61);
+  transform-origin: bottom center;
+}
+
+.stick.one {
+  left: 24px;
+  transform: rotate(-10deg);
+}
+
+.stick.two {
+  left: 37px;
+}
+
+.stick.three {
+  left: 50px;
+  transform: rotate(11deg);
+}
+
+.is-shaking .stick.two {
+  animation: jumpStick 520ms ease-in-out infinite;
+}
+
+.fallen-stick {
+  position: absolute;
+  right: 24px;
+  bottom: 20px;
+  border: 1px solid rgba(214, 173, 97, 0.34);
+  border-radius: 999px;
+  padding: 6px 12px;
+  color: #d6ad61;
+  font-size: 12px;
+  background: rgba(17, 17, 15, 0.72);
+  animation: stickLand 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.daily-result {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(214, 173, 97, 0.18);
+  border-radius: 8px;
+  padding: 14px;
+  background:
+    linear-gradient(135deg, rgba(214, 173, 97, 0.08), transparent 44%),
+    rgba(17, 17, 15, 0.44);
+}
+
+.daily-sign-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.daily-sign-name {
+  display: block;
+  color: #f2ead9;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.daily-poem {
+  display: block;
+  border-left: 2px solid #d6ad61;
+  padding-left: 10px;
+  color: #d6ad61;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.keyword-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.keyword-row text {
+  border: 1px solid rgba(122, 169, 154, 0.26);
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: #7aa99a;
+  font-size: 12px;
+  background: rgba(122, 169, 154, 0.09);
+}
+
+.method-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.method-card {
+  display: grid;
+  gap: 7px;
+  border: 1px solid rgba(218, 190, 126, 0.14);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(17, 17, 15, 0.36);
+}
+
+.method-card.is-ready {
+  border-color: rgba(122, 169, 154, 0.26);
+}
+
+.method-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.method-name {
+  color: #f2ead9;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.method-status {
+  border: 1px solid rgba(214, 173, 97, 0.22);
+  border-radius: 999px;
+  padding: 4px 7px;
+  color: #d6ad61;
+  font-size: 11px;
+  background: rgba(214, 173, 97, 0.07);
+}
+
+.method-fit {
+  color: #a9a090;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .primary-action,
@@ -1138,8 +1520,45 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .daily-extra-grid {
+    grid-template-columns: 1fr;
+  }
+
   .hex-card {
     min-height: 116px;
+  }
+}
+
+@keyframes shakeTube {
+  from {
+    transform: rotate(-7deg) translateX(-2px);
+  }
+
+  to {
+    transform: rotate(7deg) translateX(2px);
+  }
+}
+
+@keyframes jumpStick {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-18px);
+  }
+}
+
+@keyframes stickLand {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) rotate(-8deg);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(-8deg);
   }
 }
 </style>

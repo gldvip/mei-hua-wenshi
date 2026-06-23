@@ -1,5 +1,6 @@
 const http = require("node:http");
 const { castDivination } = require("./divination");
+const { castDailyOracle } = require("./dailyOracle");
 
 const PORT = Number(process.env.PORT || 8787);
 const MAX_BODY_SIZE = 1024 * 1024;
@@ -118,6 +119,18 @@ async function handleCastDivination(request, response) {
   sendJson(response, 200, output.result);
 }
 
+async function handleCastDailyOracle(request, response) {
+  let payload;
+  try {
+    payload = JSON.parse(await readBody(request));
+  } catch (error) {
+    sendJson(response, 400, { error: error.message || "请求体不是有效 JSON。" });
+    return;
+  }
+
+  sendJson(response, 200, castDailyOracle(payload));
+}
+
 const server = http.createServer(async (request, response) => {
   if (request.method === "GET" && request.url === "/api/health") {
     sendJson(response, 200, { ok: true });
@@ -131,6 +144,11 @@ const server = http.createServer(async (request, response) => {
 
   if (request.method === "POST" && request.url === "/api/divination/cast") {
     await handleCastDivination(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && request.url === "/api/daily-oracle/cast") {
+    await handleCastDailyOracle(request, response);
     return;
   }
 
