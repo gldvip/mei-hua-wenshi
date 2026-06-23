@@ -104,18 +104,6 @@
     </view>
 
     <template v-else>
-    <view class="mobile-bottom-nav">
-      <button
-        v-for="item in sectionTabs"
-        :key="item.key"
-        class="mobile-tab"
-        :class="{ 'is-active': activeSection === item.key }"
-        @click="activeSection = item.key"
-      >
-        {{ item.label }}
-      </button>
-    </view>
-
     <view class="personal-panel mobile-section" :class="{ 'is-active': activeSection === 'info' }">
       <view class="panel-head">
         <view>
@@ -678,6 +666,17 @@
       </view>
     </view>
     </template>
+  </view>
+  <view v-if="!appConfigLoading && !showReviewMode && user" class="mobile-bottom-nav">
+    <button
+      v-for="item in sectionTabs"
+      :key="item.key"
+      class="mobile-tab"
+      :class="{ 'is-active': activeSection === item.key }"
+      @click="activeSection = item.key"
+    >
+      {{ item.label }}
+    </button>
   </view>
 </template>
 
@@ -1855,9 +1854,17 @@ function formatDate(value) {
   box-sizing: border-box;
 }
 
+:global(html) {
+  min-height: 100%;
+  background: #0c100f;
+  overscroll-behavior-y: none;
+}
+
 :global(body) {
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
+  overflow-x: hidden;
   color: #f7efd9;
   background:
     linear-gradient(180deg, rgba(12, 16, 15, 0.2), rgba(12, 16, 15, 0.82)),
@@ -1871,6 +1878,12 @@ function formatDate(value) {
   font-family:
     "Outfit", "Satoshi", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
     system-ui, sans-serif;
+  -webkit-overflow-scrolling: touch;
+}
+
+:global(#app) {
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .page-shell {
@@ -1878,6 +1891,7 @@ function formatDate(value) {
   isolation: isolate;
   width: min(100%, 480px);
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0 auto;
   padding: max(18px, env(safe-area-inset-top)) 16px max(30px, env(safe-area-inset-bottom));
   color: #f7efd9;
@@ -3262,6 +3276,10 @@ button:active {
 }
 
 @media (max-width: 859px) {
+  :global(body) {
+    background-attachment: scroll, scroll, scroll, scroll, scroll, scroll, scroll;
+  }
+
   .page-shell {
     padding-bottom: calc(84px + env(safe-area-inset-bottom));
   }
@@ -3272,6 +3290,9 @@ button:active {
     right: 0;
     bottom: 0;
     z-index: 30;
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
+    contain: layout paint;
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 6px;
