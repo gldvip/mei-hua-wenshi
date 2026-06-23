@@ -10,13 +10,13 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/static/app-icon.png",
+      "src": "/static/app-icon-bagua.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/static/app-icon.png",
+      "src": "/static/app-icon-bagua.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
