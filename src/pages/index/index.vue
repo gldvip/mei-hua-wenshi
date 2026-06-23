@@ -38,7 +38,32 @@
     </view>
 
     <template v-else>
-    <view class="profile-panel">
+    <view class="mobile-command-bar">
+      <view class="mobile-tabs">
+        <button
+          v-for="item in sectionTabs"
+          :key="item.key"
+          class="mobile-tab"
+          :class="{ 'is-active': activeSection === item.key }"
+          @click="activeSection = item.key"
+        >
+          {{ item.label }}
+        </button>
+      </view>
+      <view class="mobile-tag-strip">
+        <button
+          v-for="tag in quickTags"
+          :key="tag.label"
+          class="tag-chip compact"
+          :class="{ 'is-active': selectedTags.includes(tag.label) }"
+          @click="toggleTag(tag)"
+        >
+          {{ tag.label }}
+        </button>
+      </view>
+    </view>
+
+    <view class="profile-panel mobile-section" :class="{ 'is-active': activeSection === 'profile' }">
       <view class="panel-head">
         <view>
           <text class="panel-kicker">PROFILE</text>
@@ -102,7 +127,7 @@
       </view>
     </view>
 
-    <view class="daily-panel">
+    <view class="daily-panel mobile-section" :class="{ 'is-active': activeSection === 'daily' }">
       <view class="panel-head">
         <view>
           <text class="panel-kicker">TODAY</text>
@@ -173,7 +198,7 @@
       </view>
     </view>
 
-    <view class="method-guide">
+    <view class="method-guide mobile-section" :class="{ 'is-active': activeSection === 'methods' }">
       <view class="panel-head">
         <view>
           <text class="panel-kicker">METHODS</text>
@@ -191,7 +216,7 @@
       </view>
     </view>
 
-    <view class="question-panel">
+    <view class="question-panel mobile-section" :class="{ 'is-active': activeSection === 'mei' }">
       <view class="panel-head compact-head">
         <view>
           <text class="panel-kicker">MEI HUA</text>
@@ -256,7 +281,7 @@
       </button>
     </view>
 
-    <view class="result-panel" :class="{ 'is-empty': !current }">
+    <view class="result-panel mobile-section" :class="{ 'is-empty': !current, 'is-active': activeSection === 'mei' }">
       <view v-if="!current" class="empty-state">
         <view class="sigil"></view>
         <text>静心发问，卦象会在这里展开。</text>
@@ -364,6 +389,12 @@ import { computed, defineComponent, h, ref } from "vue";
 const AI_SECTION_TITLES = ["局势", "阻碍", "转机", "应对", "结果倾向"];
 const AI_SECTION_PATTERN = AI_SECTION_TITLES.join("|");
 const categories = ["事业", "感情", "财运", "合作", "出行", "其他"];
+const sectionTabs = [
+  { key: "daily", label: "今日" },
+  { key: "mei", label: "问事" },
+  { key: "profile", label: "档案" },
+  { key: "methods", label: "方式" }
+];
 const quickTags = [
   { label: "事业", category: "事业" },
   { label: "感情", category: "感情" },
@@ -430,6 +461,7 @@ const followupInput = ref("");
 const followupLoading = ref(false);
 const chatError = ref("");
 const historyOpen = ref(false);
+const activeSection = ref("daily");
 const authMode = ref("login");
 const authPhone = ref("");
 const authPassword = ref("");
@@ -575,6 +607,7 @@ async function cast() {
       }
     });
     current.value = result;
+    activeSection.value = "mei";
     resetAiState();
     saveResult(result);
   } catch (error) {
@@ -1078,6 +1111,10 @@ button {
   backdrop-filter: blur(18px);
 }
 
+.mobile-command-bar {
+  display: none;
+}
+
 .question-panel,
 .auth-panel,
 .profile-panel,
@@ -1233,6 +1270,13 @@ button {
   border-color: rgba(122, 169, 154, 0.36);
   color: #f2ead9;
   background: rgba(122, 169, 154, 0.16);
+}
+
+.tag-chip.compact {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 0 11px;
+  font-size: 13px;
 }
 
 .chip.is-active,
@@ -1858,6 +1902,81 @@ button {
 .history-question {
   color: #f2ead9;
   font-size: 14px;
+}
+
+@media (max-width: 859px) {
+  .mobile-command-bar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: grid;
+    gap: 10px;
+    margin: -2px 0 14px;
+    border: 1px solid rgba(218, 190, 126, 0.16);
+    border-radius: 8px;
+    padding: 10px;
+    background: rgba(20, 19, 16, 0.9);
+    box-shadow: 0 18px 42px -30px rgba(5, 5, 4, 0.9);
+    backdrop-filter: blur(18px);
+  }
+
+  .mobile-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .mobile-tab {
+    min-height: 38px;
+    border: 1px solid rgba(218, 190, 126, 0.18);
+    border-radius: 8px;
+    color: #a9a090;
+    background: rgba(242, 234, 217, 0.045);
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .mobile-tab.is-active {
+    border-color: rgba(214, 173, 97, 0.36);
+    color: #17130d;
+    background: linear-gradient(135deg, #d8b56d, #b98942 72%, #8aa99d);
+  }
+
+  .mobile-tag-strip {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-tag-strip::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tag-panel {
+    display: none;
+  }
+
+  .mobile-section {
+    display: none !important;
+  }
+
+  .question-panel.mobile-section.is-active,
+  .profile-panel.mobile-section.is-active,
+  .daily-panel.mobile-section.is-active,
+  .method-guide.mobile-section.is-active {
+    display: grid !important;
+  }
+
+  .result-panel.mobile-section.is-active {
+    display: block !important;
+  }
+
+  .result-panel.is-empty.mobile-section.is-active {
+    display: grid !important;
+  }
 }
 
 @media (min-width: 860px) {
