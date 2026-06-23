@@ -273,7 +273,7 @@ function castDivination(token, payload, castFn) {
     resultId: output.result.id,
     question: output.result.question,
     category: output.result.category,
-    method: payload.method,
+    method: payload.method || payload.oracleType || output.result.type,
     createdAt: output.result.createdAt || new Date().toISOString()
   });
   writeData(auth.data);

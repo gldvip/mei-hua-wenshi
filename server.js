@@ -1,6 +1,7 @@
 const http = require("node:http");
 const { castDivination } = require("./divination");
 const { castDailyOracle } = require("./dailyOracle");
+const { castAdvancedDivination } = require("./advancedDivination");
 const userStore = require("./userStore");
 
 const PORT = Number(process.env.PORT || 8787);
@@ -133,6 +134,24 @@ async function handleCastDailyOracle(request, response) {
   sendJson(response, output.error ? 401 : 200, output);
 }
 
+async function handleCastAdvancedDivination(request, response) {
+  let payload;
+  try {
+    payload = JSON.parse(await readBody(request));
+  } catch (error) {
+    sendJson(response, 400, { error: error.message || "请求体不是有效 JSON。" });
+    return;
+  }
+
+  const output = userStore.castDivination(getBearerToken(request), payload, castAdvancedDivination);
+  if (output.error) {
+    sendJson(response, output.error.includes("登录") ? 401 : 400, { error: output.error });
+    return;
+  }
+
+  sendJson(response, 200, output.result);
+}
+
 async function readJsonPayload(request, response) {
   try {
     return JSON.parse(await readBody(request));
@@ -208,6 +227,11 @@ const server = http.createServer(async (request, response) => {
 
   if (request.method === "POST" && pathname === "/api/daily-oracle/cast") {
     await handleCastDailyOracle(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && pathname === "/api/oracle/cast") {
+    await handleCastAdvancedDivination(request, response);
     return;
   }
 

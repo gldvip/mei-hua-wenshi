@@ -214,12 +214,87 @@
         </view>
       </view>
       <view class="method-grid">
-        <view v-for="item in methodGuides" :key="item.name" class="method-card" :class="{ 'is-ready': item.ready }">
+        <button
+          v-for="item in methodGuides"
+          :key="item.name"
+          class="method-card"
+          :class="{ 'is-ready': item.ready, 'is-selected': selectedGuideKey === item.key }"
+          @click="selectMethodGuide(item)"
+        >
           <view class="method-row">
             <text class="method-name">{{ item.name }}</text>
-            <text class="method-status">{{ item.ready ? "可用" : "后续" }}</text>
+            <text class="method-status">{{ selectedGuideKey === item.key ? "已选" : item.ready ? "可用" : "后续" }}</text>
           </view>
           <text class="method-fit">{{ item.fit }}</text>
+        </button>
+      </view>
+
+      <view v-if="isAdvancedMethod" class="advanced-tool">
+        <view class="panel-head compact-head">
+          <view>
+            <text class="panel-kicker">CAST</text>
+            <text class="panel-title">{{ currentMethodGuide?.name }}问卜</text>
+          </view>
+        </view>
+        <view class="field">
+          <text class="label">{{ advancedMethod === "personal" ? "所看主题" : "所问之事" }}</text>
+          <textarea
+            v-model="advancedQuestion"
+            class="question-input daily-input"
+            :placeholder="advancedMethod === 'personal' ? '例如：我这个阶段适合主动换方向吗？' : '例如：这件事今天该不该推进？'"
+            :maxlength="-1"
+          />
+        </view>
+        <view v-if="advancedMethod === 'personal'" class="daily-extra-grid">
+          <view class="field compact">
+            <text class="label">出生日期</text>
+            <input v-model="advancedBirthDate" class="number-input" type="date" />
+          </view>
+          <view class="field compact">
+            <text class="label">出生时间</text>
+            <input v-model="advancedBirthTime" class="number-input" type="time" />
+          </view>
+        </view>
+        <view class="field compact">
+          <text class="label">地点/背景</text>
+          <input v-model="advancedLocation" class="number-input" placeholder="可选：地点、关系、当前背景" />
+        </view>
+        <button class="primary-action" :disabled="advancedCasting" @click="castAdvanced">
+          <text>{{ advancedCasting ? "正在推演" : "开始推演" }}</text>
+          <text class="arrow-line"></text>
+        </button>
+        <text class="error-text">{{ advancedError }}</text>
+
+        <view v-if="advancedResult" class="advanced-result">
+          <view class="daily-sign-head">
+            <view>
+              <text class="daily-sign-name">{{ advancedResult.methodLabel }}</text>
+              <text class="meta">{{ advancedResult.verdict }} · {{ formatDate(advancedResult.createdAt) }}</text>
+            </view>
+            <text class="verdict-badge">{{ advancedResult.verdict }}</text>
+          </view>
+          <text class="daily-poem">{{ advancedResult.summary }}</text>
+          <view class="analysis-grid">
+            <view v-for="fact in advancedResult.facts" :key="fact[0]" class="fact-row">
+              <text>{{ fact[0] }}</text>
+              <text>{{ fact[1] }}</text>
+            </view>
+          </view>
+          <view v-if="advancedResult.extra?.plate" class="method-plate">
+            <view v-for="item in advancedResult.extra.plate" :key="item.palace" class="plate-cell">
+              <text class="method-name">{{ item.palace }}</text>
+              <text class="meta">{{ item.door }} · {{ item.star }} · {{ item.god }}</text>
+            </view>
+          </view>
+          <view v-if="advancedResult.extra?.lines" class="line-list">
+            <view v-for="item in advancedResult.extra.lines" :key="item.line" class="fact-row">
+              <text>第{{ item.line }}爻</text>
+              <text>{{ item.name }}{{ item.moving ? " · 动" : "" }}</text>
+            </view>
+          </view>
+          <view class="reading-list">
+            <text v-for="item in advancedResult.reading" :key="item" class="reading-item">{{ item }}</text>
+          </view>
         </view>
       </view>
     </view>
@@ -381,8 +456,8 @@
             <text>暂无记录。</text>
           </view>
           <view v-for="item in history" :key="item.id" class="history-item" @click="restoreHistory(item)">
-            <text class="history-question">{{ item.question }}</text>
-            <text>{{ item.category }} · {{ item.original.name }}之{{ item.changed.name }} · {{ formatDate(item.createdAt) }}</text>
+            <text class="history-question">{{ getHistoryTitle(item) }}</text>
+            <text>{{ getHistoryMeta(item) }}</text>
           </view>
         </view>
       </view>
@@ -416,13 +491,14 @@ const quickTags = [
   { label: "健康" }
 ];
 const methodGuides = [
-  { name: "今日签", ready: true, fit: "适合今日状态、轻量提醒、当天宜忌与行动校准。" },
-  { name: "梅花易数", ready: true, fit: "适合一事一问、临时起意、看当前气机和走势。" },
-  { name: "小六壬", ready: false, fit: "适合快速判断来不来、成不成、等不等、去不去。" },
-  { name: "六爻", ready: false, fit: "适合重要事项、关系复杂、要看用神细节和应期。" },
-  { name: "奇门", ready: false, fit: "适合行动策略、方位选择、布局和大方向判断。" },
-  { name: "个人盘", ready: false, fit: "适合长期背景、阶段趋势和个人状态，不适合临时小事。" }
+  { key: "daily", name: "今日签", ready: true, fit: "适合今日状态、轻量提醒、当天宜忌与行动校准。" },
+  { key: "mei", name: "梅花易数", ready: true, fit: "适合一事一问、临时起意、看当前气机和走势。" },
+  { key: "xiaoliuren", name: "小六壬", ready: true, fit: "适合快速判断来不来、成不成、等不等、去不去。" },
+  { key: "liuyao", name: "六爻", ready: true, fit: "适合重要事项、关系复杂、要看动爻、变化和应期。" },
+  { key: "qimen", name: "奇门", ready: true, fit: "适合行动策略、方位选择、布局和大方向判断。" },
+  { key: "personal", name: "个人盘", ready: true, fit: "适合长期背景、阶段趋势和个人状态，不适合临时小事。" }
 ];
+const advancedMethodKeys = ["xiaoliuren", "liuyao", "qimen", "personal"];
 
 const HexCard = defineComponent({
   props: {
@@ -484,9 +560,20 @@ const newProfileName = ref("");
 const newProfileRelation = ref("");
 const newProfileNote = ref("");
 const selectedTags = ref(loadJsonStorage("wenshi-selected-tags", []));
+const advancedMethod = ref("xiaoliuren");
+const advancedQuestion = ref("");
+const advancedBirthDate = ref("");
+const advancedBirthTime = ref("12:00");
+const advancedLocation = ref("");
+const advancedCasting = ref(false);
+const advancedError = ref("");
+const advancedResult = ref(null);
+const selectedGuideKey = ref("xiaoliuren");
 
 const currentProfile = computed(() => profiles.value.find((item) => item.id === user.value?.currentProfileId) || profiles.value[0] || null);
 const selectedTagLabels = computed(() => selectedTags.value.filter((label) => quickTags.some((tag) => tag.label === label)));
+const isAdvancedMethod = computed(() => advancedMethodKeys.includes(selectedGuideKey.value));
+const currentMethodGuide = computed(() => methodGuides.find((item) => item.key === advancedMethod.value) || methodGuides[2]);
 
 const currentSession = computed(() => {
   if (!current.value) return { reading: "", messages: [] };
@@ -599,6 +686,27 @@ function clearTags() {
   removeStorage("wenshi-selected-tags");
 }
 
+function selectMethodGuide(item) {
+  if (item.key === "daily") {
+    selectedGuideKey.value = "daily";
+    activeSection.value = "daily";
+    return;
+  }
+
+  if (item.key === "mei") {
+    selectedGuideKey.value = "mei";
+    activeSection.value = "mei";
+    return;
+  }
+
+  if (!advancedMethodKeys.includes(item.key)) return;
+  selectedGuideKey.value = item.key;
+  advancedMethod.value = item.key;
+  activeSection.value = "methods";
+  advancedError.value = "";
+  advancedResult.value = null;
+}
+
 async function cast() {
   errorText.value = "";
   casting.value = true;
@@ -622,6 +730,30 @@ async function cast() {
     errorText.value = `起卦失败：${error.message}`;
   } finally {
     casting.value = false;
+  }
+}
+
+async function castAdvanced() {
+  advancedError.value = "";
+  advancedCasting.value = true;
+  try {
+    const result = await requestJson("/api/oracle/cast", {
+      oracleType: advancedMethod.value,
+      question: advancedQuestion.value.trim(),
+      category: category.value,
+      tags: selectedTagLabels.value,
+      location: advancedLocation.value.trim(),
+      profile: dailyProfile.value.trim() || currentProfile.value?.name || "",
+      birthDate: advancedBirthDate.value,
+      birthTime: advancedBirthTime.value
+    });
+    advancedResult.value = result;
+    activeSection.value = "methods";
+    saveResult(result);
+  } catch (error) {
+    advancedError.value = `推演失败：${error.message}`;
+  } finally {
+    advancedCasting.value = false;
   }
 }
 
@@ -938,9 +1070,40 @@ function saveResult(result) {
 }
 
 function restoreHistory(item) {
-  current.value = item;
-  resetAiState();
+  if (advancedMethodKeys.includes(item.type)) {
+    advancedMethod.value = item.type;
+    selectedGuideKey.value = item.type;
+    advancedResult.value = item;
+    activeSection.value = "methods";
+  } else {
+    selectedGuideKey.value = "mei";
+    current.value = item;
+    activeSection.value = "mei";
+    resetAiState();
+  }
   historyOpen.value = false;
+}
+
+function getHistoryTitle(item) {
+  return item.question || item.summary || "未命名问卜";
+}
+
+function getHistoryMeta(item) {
+  const parts = [
+    item.category,
+    item.methodLabel,
+    getHistoryShape(item),
+    formatDate(item.createdAt)
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
+
+function getHistoryShape(item) {
+  if (item.original?.name && item.changed?.name) return `${item.original.name}之${item.changed.name}`;
+  if (item.extra?.state?.name) return item.extra.state.name;
+  if (item.extra?.best?.palace) return `${item.extra.best.palace}${item.extra.best.door}`;
+  if (item.extra?.stem && item.extra?.branch) return `${item.extra.stem}${item.extra.branch}`;
+  return item.verdict || "";
 }
 
 function clearAllHistory() {
@@ -1506,11 +1669,31 @@ button {
   border: 1px solid rgba(218, 183, 103, 0.14);
   border-radius: 8px;
   padding: 12px;
+  color: inherit;
+  text-align: left;
   background: rgba(7, 11, 10, 0.34);
+}
+
+.method-card::after {
+  border: 0;
 }
 
 .method-card.is-ready {
   border-color: rgba(150, 200, 184, 0.28);
+}
+
+.method-card.is-selected {
+  border-color: rgba(218, 183, 103, 0.54);
+  background:
+    linear-gradient(135deg, rgba(218, 183, 103, 0.16), rgba(42, 92, 85, 0.18)),
+    rgba(7, 11, 10, 0.48);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.method-card.is-selected .method-status {
+  border-color: rgba(150, 200, 184, 0.36);
+  color: #96c8b8;
+  background: rgba(42, 92, 85, 0.2);
 }
 
 .method-row {
@@ -1539,6 +1722,55 @@ button {
   color: #b5ac99;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.advanced-tool,
+.advanced-result,
+.line-list {
+  display: grid;
+  gap: 12px;
+}
+
+.advanced-tool {
+  border-top: 1px solid rgba(218, 183, 103, 0.16);
+  padding-top: 14px;
+}
+
+.advanced-result {
+  border: 1px solid rgba(218, 183, 103, 0.18);
+  border-radius: 8px;
+  padding: 14px;
+  background:
+    linear-gradient(135deg, rgba(42, 92, 85, 0.15), transparent 50%),
+    rgba(7, 11, 10, 0.46);
+}
+
+.method-plate {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.plate-cell {
+  display: grid;
+  min-height: 72px;
+  align-content: center;
+  gap: 4px;
+  border: 1px solid rgba(218, 183, 103, 0.14);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(246, 240, 223, 0.045);
+}
+
+.plate-cell .meta {
+  margin-top: 0;
+}
+
+.line-list {
+  border: 1px solid rgba(150, 200, 184, 0.18);
+  border-radius: 8px;
+  padding: 4px 12px 12px;
+  background: rgba(42, 92, 85, 0.1);
 }
 
 .primary-action,
