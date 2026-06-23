@@ -1,0 +1,7 @@
+services:
+  mei-hua-wenshi:
+    build: .
+    container_name: mei-hua-wenshi
+    ports:
+      - "3007:80"
+    restart: unless-stopped

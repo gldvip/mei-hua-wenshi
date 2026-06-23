@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>玄问临占</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="topbar" aria-label="应用标题">
+        <div>
+          <p class="eyebrow">MEI HUA WEN SHI</p>
+          <h1>玄问临占</h1>
+        </div>
+        <button class="icon-button" id="openHistory" type="button" aria-label="打开记录">
+          <span></span>
+        </button>
+      </section>
+
+      <section class="question-panel" aria-label="问事起卦">
+        <div class="field">
+          <label for="question">所问之事</label>
+          <textarea id="question" rows="4" placeholder="例如：这个项目本月能不能推进成功？"></textarea>
+          <p class="helper">一卦一问，问题越具体，断语越清晰。</p>
+        </div>
+
+        <div class="field">
+          <label>事项分类</label>
+          <div class="chip-grid" id="categoryGroup" role="radiogroup" aria-label="事项分类">
+            <button class="chip is-active" type="button" data-category="事业">事业</button>
+            <button class="chip" type="button" data-category="感情">感情</button>
+            <button class="chip" type="button" data-category="财运">财运</button>
+            <button class="chip" type="button" data-category="合作">合作</button>
+            <button class="chip" type="button" data-category="出行">出行</button>
+            <button class="chip" type="button" data-category="其他">其他</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>起卦方式</label>
+          <div class="mode-switch" id="methodGroup" role="radiogroup" aria-label="起卦方式">
+            <button class="mode is-active" type="button" data-method="time">时间起卦</button>
+            <button class="mode" type="button" data-method="number">数字起卦</button>
+          </div>
+        </div>
+
+        <div class="number-panel" id="numberPanel" hidden>
+          <div class="field compact">
+            <label for="numA">上数</label>
+            <input id="numA" inputmode="numeric" type="number" min="1" placeholder="如 17" />
+          </div>
+          <div class="field compact">
+            <label for="numB">下数</label>
+            <input id="numB" inputmode="numeric" type="number" min="1" placeholder="如 29" />
+          </div>
+          <div class="field compact">
+            <label for="numC">动数</label>
+            <input id="numC" inputmode="numeric" type="number" min="1" placeholder="可空" />
+          </div>
+        </div>
+
+        <p class="error-text" id="errorText" aria-live="polite"></p>
+
+        <button class="primary-action" id="castButton" type="button">
+          <span>起卦问事</span>
+          <i></i>
+        </button>
+      </section>
+
+      <section class="result-panel is-empty" id="resultPanel" aria-live="polite">
+        <div class="empty-state">
+          <div class="sigil" aria-hidden="true"></div>
+          <p>静心发问，卦象会在这里展开。</p>
+        </div>
+      </section>
+    </main>
+
+    <aside class="drawer" id="historyDrawer" aria-hidden="true">
+      <div class="drawer-backdrop" id="closeHistory"></div>
+      <section class="drawer-panel" aria-label="问事记录">
+        <div class="drawer-head">
+          <h2>问事记录</h2>
+          <button class="plain-button" id="clearHistory" type="button">清空</button>
+        </div>
+        <div class="history-list" id="historyList"></div>
+      </section>
+    </aside>
+
+    <script src="./ai-config.js"></script>
+    <script>
+      if (!location.hostname || location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+        document.write('<script src="./ai-config.local.js"><\/script>');
+      }
+    </script>
+    <script src="./app.js"></script>
+  </body>
+</html>
