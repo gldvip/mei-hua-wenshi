@@ -2,8 +2,9 @@ const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "app-data.json");
 const SESSION_DAYS = 30;
+const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, "app-data.json");
+const CAST_COOLDOWN_ENABLED = String(process.env.CAST_COOLDOWN_ENABLED || "").toLowerCase() === "true";
 
 function readData() {
   try {
@@ -230,7 +231,7 @@ function castDivination(token, payload, castFn) {
   const recent = auth.data.divinationRecords
     .filter((item) => item.userId === auth.user.id)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-  if (recent) {
+  if (CAST_COOLDOWN_ENABLED && recent) {
     const nextAt = new Date(recent.createdAt).getTime() + 60 * 60 * 1000;
     if (nextAt > now) {
       const minutes = Math.ceil((nextAt - now) / 60000);
