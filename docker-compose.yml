@@ -15,4 +15,6 @@ services:
     container_name: mei-hua-wenshi-ai-proxy
     env_file:
       - .env
+    environment:
+      - TZ=Asia/Shanghai
     restart: unless-stopped

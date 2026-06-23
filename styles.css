@@ -334,6 +334,12 @@ input::placeholder {
   transform: rotate(45deg);
 }
 
+.primary-action[disabled] {
+  cursor: not-allowed;
+  filter: grayscale(0.45);
+  opacity: 0.66;
+}
+
 .primary-action::before,
 .ai-action::before {
   position: absolute;

@@ -89,7 +89,7 @@
 
     <script src="./ai-config.js"></script>
     <script>
-      if (!location.hostname || location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+      if (location.protocol === "file:") {
         document.write('<script src="./ai-config.local.js"><\/script>');
       }
     </script>

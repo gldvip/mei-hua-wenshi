@@ -7,7 +7,7 @@
 - 不做商业化，不考虑付费和拉新。
 - 重点不是八字人生盘，而是临时问事。
 - 第一版先做梅花易数，后续再加六爻、小六壬、奇门。
-- 规则计算固定，AI 只负责白话深断。
+- 规则计算固定在后端接口，前端只负责渲染，AI 只负责白话深断。
 
 ## 已实现
 
@@ -65,7 +65,8 @@ POST /api/chat/completions
 
 - `index.html`：页面结构。
 - `styles.css`：手机端玄幻风界面样式。
-- `app.js`：起卦、排卦、断语、历史记录、AI 请求逻辑。
+- `app.js`：表单交互、结果渲染、历史记录、AI 请求逻辑。
+- `divination.js`：后端起卦、排卦、体用、生克、断语规则。
 - `server.js`：AI 后端代理，不把 key 暴露给浏览器。
 - `ai-config.js`：公开前端占位配置，默认走 `/api/chat/completions`。
 - `Dockerfile` / `Dockerfile.api` / `docker-compose.yml`：前端静态服务和 AI 代理部署配置。

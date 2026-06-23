@@ -25,7 +25,7 @@ file:///Users/luck/cccode/mei-hua-wenshi/index.html
 - 梅花易数问事。
 - 手机端优先。
 - 界面简洁但带玄幻氛围。
-- 规则排卦固定，AI 负责白话深断和追问解释。
+- 规则排卦固定在后端接口，前端只负责渲染，AI 负责白话深断和追问解释。
 
 ## 当前已实现
 
@@ -142,8 +142,9 @@ AI 有时返回类似：
 ```text
 index.html      页面结构
 styles.css      手机端样式和玄幻视觉
-app.js          起卦、排卦、AI、追问、历史记录逻辑
-server.js       AI 后端代理，隐藏真实 key
+app.js          表单交互、结果渲染、AI、追问、历史记录逻辑
+divination.js   后端起卦、排卦、体用、生克、断语规则
+server.js       后端接口：起卦计算和 AI 代理
 ai-config.js    公开前端占位配置
 Dockerfile      前端 nginx 镜像
 Dockerfile.api  后端 AI 代理镜像
