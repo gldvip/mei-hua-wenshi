@@ -270,6 +270,38 @@
             </view>
           </view>
         </view>
+
+        <view class="followup-panel">
+          <view class="followup-head">
+            <text class="section-title plain">继续追问</text>
+            <text>围绕今日签追问；若是新事情，建议重新起卦。</text>
+          </view>
+          <view class="chat-list">
+            <view v-if="!dailySession.messages.length" class="chat-empty">
+              <text>可以追问“今天具体该注意什么”“这件事该主动还是等”。</text>
+            </view>
+            <view
+              v-for="(message, index) in dailySession.messages"
+              :key="index"
+              class="chat-message"
+              :class="message.role === 'user' ? 'is-user' : 'is-assistant'"
+            >
+              <text class="chat-bubble">{{ cleanAiText(message.content) }}</text>
+            </view>
+          </view>
+          <view class="chat-composer">
+            <textarea
+              :value="getFollowupDraft(dailyOracle.id)"
+              class="followup-input"
+              placeholder="比如：今天这件事更适合主动还是等待？"
+              @input="setFollowupDraft(dailyOracle.id, $event.detail.value)"
+            />
+            <button class="send-button" :disabled="isFollowupLoading(dailyOracle.id)" aria-label="发送追问" @click="requestFollowupFor(dailyOracle)">
+              <text></text>
+            </button>
+          </view>
+          <text class="chat-error">{{ getFollowupError(dailyOracle.id) }}</text>
+        </view>
       </view>
     </view>
 
@@ -438,6 +470,38 @@
               </view>
             </view>
           </view>
+
+          <view class="followup-panel">
+            <view class="followup-head">
+              <text class="section-title plain">继续追问</text>
+              <text>围绕当前结果追问；若是新事情，建议重新起卦。</text>
+            </view>
+            <view class="chat-list">
+              <view v-if="!advancedSession.messages.length" class="chat-empty">
+                <text>可以追问“关键阻碍是什么”“下一步该怎么做”“应期怎么看”。</text>
+              </view>
+              <view
+                v-for="(message, index) in advancedSession.messages"
+                :key="index"
+                class="chat-message"
+                :class="message.role === 'user' ? 'is-user' : 'is-assistant'"
+              >
+                <text class="chat-bubble">{{ cleanAiText(message.content) }}</text>
+              </view>
+            </view>
+            <view class="chat-composer">
+              <textarea
+                :value="getFollowupDraft(advancedResult.id)"
+                class="followup-input"
+                placeholder="比如：这个判断里最该抓哪一点？"
+                @input="setFollowupDraft(advancedResult.id, $event.detail.value)"
+              />
+              <button class="send-button" :disabled="isFollowupLoading(advancedResult.id)" aria-label="发送追问" @click="requestFollowupFor(advancedResult)">
+                <text></text>
+              </button>
+            </view>
+            <text class="chat-error">{{ getFollowupError(advancedResult.id) }}</text>
+          </view>
         </view>
       </view>
     </view>
@@ -580,12 +644,17 @@
             </view>
           </view>
           <view class="chat-composer">
-            <textarea v-model="followupInput" class="followup-input" placeholder="比如：阻碍具体指什么？我接下来该主动还是等？" />
-            <button class="send-button" :disabled="followupLoading" aria-label="发送追问" @click="requestFollowup">
+            <textarea
+              :value="getFollowupDraft(current.id)"
+              class="followup-input"
+              placeholder="比如：阻碍具体指什么？我接下来该主动还是等？"
+              @input="setFollowupDraft(current.id, $event.detail.value)"
+            />
+            <button class="send-button" :disabled="isFollowupLoading(current.id)" aria-label="发送追问" @click="requestFollowupFor(current)">
               <text></text>
             </button>
           </view>
-          <text class="chat-error">{{ chatError }}</text>
+          <text class="chat-error">{{ getFollowupError(current.id) }}</text>
         </view>
       </view>
     </view>
@@ -818,9 +887,9 @@ const advancedAiVisible = ref(false);
 const advancedAiLoading = ref(false);
 const advancedAiNote = ref("");
 const advancedAiSections = ref([]);
-const followupInput = ref("");
-const followupLoading = ref(false);
-const chatError = ref("");
+const followupDrafts = ref({});
+const followupLoadingMap = ref({});
+const followupErrors = ref({});
 const historyOpen = ref(false);
 const activeSection = ref("daily");
 const authMode = ref("login");
@@ -886,6 +955,14 @@ const showReviewMode = computed(() => miniProgramReviewMode.value && isMiniProgr
 const currentSession = computed(() => {
   if (!current.value) return { reading: "", messages: [] };
   return getAiSession(current.value.id);
+});
+const dailySession = computed(() => {
+  if (!dailyOracle.value) return { reading: "", messages: [] };
+  return getAiSession(dailyOracle.value.id);
+});
+const advancedSession = computed(() => {
+  if (!advancedResult.value) return { reading: "", messages: [] };
+  return getAiSession(advancedResult.value.id);
 });
 
 dailyOracle.value = loadDailyOracle();
@@ -1234,6 +1311,7 @@ function resetLiuYaoShake() {
 async function requestDailyAiReading() {
   if (!dailyOracle.value) return;
   await requestContextAiReading({
+    resultId: dailyOracle.value.id,
     prompt: buildDailyAiPrompt(dailyOracle.value),
     loading: dailyAiLoading,
     visible: dailyAiVisible,
@@ -1247,6 +1325,7 @@ async function requestDailyAiReading() {
 async function requestAdvancedAiReading() {
   if (!advancedResult.value) return;
   await requestContextAiReading({
+    resultId: advancedResult.value.id,
     prompt: buildAdvancedAiPrompt(advancedResult.value),
     loading: advancedAiLoading,
     visible: advancedAiVisible,
@@ -1257,7 +1336,7 @@ async function requestAdvancedAiReading() {
   });
 }
 
-async function requestContextAiReading({ prompt, loading, visible, note, sections, system }) {
+async function requestContextAiReading({ resultId, prompt, loading, visible, note, sections, system }) {
   loading.value = true;
   visible.value = true;
   note.value = "正在整理问卜结果...";
@@ -1272,6 +1351,7 @@ async function requestContextAiReading({ prompt, loading, visible, note, section
       ]
     });
     const content = cleanAiText(data.choices?.[0]?.message?.content?.trim() || "AI 没有返回可读内容。");
+    if (resultId) setAiReading(resultId, content);
     note.value = "";
     await revealAiText(content, sections);
   } catch (error) {
@@ -1314,33 +1394,33 @@ async function requestAiReading() {
   }
 }
 
-async function requestFollowup() {
-  if (!current.value) return;
-  const text = followupInput.value.trim();
-  chatError.value = "";
+async function requestFollowupFor(result) {
+  if (!result?.id) return;
+  const text = getFollowupDraft(result.id).trim();
+  setFollowupError(result.id, "");
   if (!text) {
-    chatError.value = "先写下你要追问的点。";
+    setFollowupError(result.id, "先写下你要追问的点。");
     return;
   }
 
-  const session = getAiSession(current.value.id);
+  const session = getAiSession(result.id);
   session.messages.push({ role: "user", content: text, createdAt: new Date().toISOString() });
-  followupInput.value = "";
-  followupLoading.value = true;
+  setFollowupDraft(result.id, "");
+  setFollowupLoading(result.id, true);
   saveAiSessions();
 
   try {
     const data = await requestJson("/api/chat/completions", {
       temperature: 0.72,
-      messages: buildFollowupMessages(current.value, session)
+      messages: buildFollowupMessages(result, session)
     });
     const answer = cleanAiText(data.choices?.[0]?.message?.content?.trim() || "AI 没有返回可读内容。");
     session.messages.push({ role: "assistant", content: answer, createdAt: new Date().toISOString() });
     saveAiSessions();
   } catch (error) {
-    chatError.value = `追问失败：${error.message}`;
+    setFollowupError(result.id, `追问失败：${error.message}`);
   } finally {
-    followupLoading.value = false;
+    setFollowupLoading(result.id, false);
   }
 }
 
@@ -1544,7 +1624,7 @@ function buildFollowupMessages(result, session) {
     {
       role: "system",
       content:
-        "你是传统梅花易数追问助手。当前卦已经起好，不要重新起卦。围绕原卦自然回答用户不懂的地方，像继续聊天一样回应。若用户明显问另一个独立新事件，提醒一事一卦，建议重新起卦。不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。"
+        "你是传统问卜追问助手。当前问卜结果已经生成，不要重新起卦、抽签或排盘。围绕原结果自然回答用户不懂的地方，像继续聊天一样回应。若用户明显问另一个独立新事件，提醒一事一占，建议重新问卜。不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。"
     },
     {
       role: "user",
@@ -1556,21 +1636,17 @@ function buildFollowupMessages(result, session) {
 
 function buildFollowupContext(result, session) {
   return [
-    "当前卦上下文：",
-    `原问题：${result.question}`,
-    `事项：${result.category}`,
-    result.tags?.length ? `标签：${result.tags.join("、")}` : "",
-    `起卦：${result.methodLabel}，${result.seedLabel}`,
-    `本卦：${result.original.name}（${result.original.fullName}）`,
-    `互卦：${result.mutual.name}（${result.mutual.fullName}）`,
-    `变卦：${result.changed.name}（${result.changed.fullName}）`,
-    `动爻：第 ${result.movingLine} 爻`,
-    `体卦：${result.body.name}${result.body.image}，五行${result.body.element}`,
-    `用卦：${result.use.name}${result.use.image}，五行${result.use.element}`,
-    `体用关系：${result.relation.type}，${result.relation.text}`,
+    "当前问卜上下文：",
+    buildFollowupBaseContext(result),
     session.reading ? `此前 AI 深断：${session.reading}` : "此前 AI 深断：暂无，按卦象和规则断语回答。",
-    "回答要求：直接回答用户追问，不要重复完整排盘，不要套固定栏目。"
+    "回答要求：直接回答用户追问，不要重复完整结果，不要套固定栏目。"
   ].filter(Boolean).join("\n");
+}
+
+function buildFollowupBaseContext(result) {
+  if (result.type === "daily-oracle" || result.sign) return buildDailyAiPrompt(result);
+  if (result.original && result.mutual && result.changed) return buildAiPrompt(result);
+  return buildAdvancedAiPrompt(result);
 }
 
 function parseAiSections(text) {
@@ -1621,6 +1697,30 @@ function getAiSession(resultId) {
     aiSessions.value[resultId] = { reading: "", messages: [] };
   }
   return aiSessions.value[resultId];
+}
+
+function getFollowupDraft(resultId) {
+  return followupDrafts.value[resultId] || "";
+}
+
+function setFollowupDraft(resultId, value) {
+  followupDrafts.value = { ...followupDrafts.value, [resultId]: value };
+}
+
+function isFollowupLoading(resultId) {
+  return Boolean(followupLoadingMap.value[resultId]);
+}
+
+function setFollowupLoading(resultId, value) {
+  followupLoadingMap.value = { ...followupLoadingMap.value, [resultId]: value };
+}
+
+function getFollowupError(resultId) {
+  return followupErrors.value[resultId] || "";
+}
+
+function setFollowupError(resultId, value) {
+  followupErrors.value = { ...followupErrors.value, [resultId]: value };
 }
 
 function setAiReading(resultId, content) {
@@ -1692,8 +1792,7 @@ function resetAiState() {
   aiLoading.value = false;
   aiNote.value = "";
   aiSections.value = [];
-  followupInput.value = "";
-  chatError.value = "";
+  if (current.value?.id) setFollowupError(current.value.id, "");
 }
 
 function resetDailyAiState() {
