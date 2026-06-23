@@ -131,6 +131,17 @@ dist/build/mp-weixin
 - 审核通过后，把 `MINI_PROGRAM_REVIEW_MODE=false` 并重启后端容器，小程序会自动恢复完整功能，不需要重新提交版本。
 - H5 不受审核模式影响。
 
+## iPhone 自用安装
+
+当前 H5 已支持 iOS 主屏幕 Web App，可不经过 App Store 自用：
+
+1. 用 iPhone Safari 打开 `https://wenshi.cccode.com.cn`。
+2. 点底部分享按钮。
+3. 选择“添加到主屏幕”。
+4. 主屏幕会出现“玄问临占”，打开后按独立 App 方式全屏运行。
+
+如果要生成真正的 `.ipa` 安装包，需要本机安装完整 Xcode，并用 Apple ID 进行签名。免费 Apple ID 适合临时自用调试；长期稳定安装通常需要 Apple Developer Program 或 Ad Hoc/TestFlight 流程。
+
 ## 后续计划
 
 1. 进一步优化时间起卦：可继续加入节气、月建等更细的取数依据。

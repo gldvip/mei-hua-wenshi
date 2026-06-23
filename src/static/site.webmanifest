@@ -1,0 +1,25 @@
+{
+  "name": "玄问临占",
+  "short_name": "玄问",
+  "description": "传统临时问事工具",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#11110f",
+  "theme_color": "#11110f",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/static/oracle-disc.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/oracle-disc.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
