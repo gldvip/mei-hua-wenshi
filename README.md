@@ -30,15 +30,13 @@
 
 ## AI 接入
 
-编辑 `ai-config.js`：
+公网部署时 AI 走后端代理，浏览器不会拿到真实 API key。复制 `.env.example` 为 `.env`，填写服务端配置：
 
-```js
-window.MEI_HUA_AI_CONFIG = {
-  baseUrl: "你的接口地址",
-  apiKey: "你的 key",
-  model: "你的模型名",
-  temperature: 0.72
-};
+```text
+AI_BASE_URL=你的接口地址
+AI_API_KEY=你的 key
+AI_MODEL=你的模型名
+AI_TEMPERATURE=0.72
 ```
 
 当前按常见 OpenAI 风格接口调用：
@@ -47,7 +45,13 @@ window.MEI_HUA_AI_CONFIG = {
 POST {baseUrl}/chat/completions
 ```
 
-如果你的接口路径不是 `/chat/completions`，后面改 `app.js` 里的 `requestAiReading` 函数即可。
+前端默认请求同源接口：
+
+```text
+POST /api/chat/completions
+```
+
+本地直接打开 `index.html` 时，可以继续用被忽略的 `ai-config.local.js` 做本地调试。
 
 ## 后续计划
 
@@ -62,4 +66,6 @@ POST {baseUrl}/chat/completions
 - `index.html`：页面结构。
 - `styles.css`：手机端玄幻风界面样式。
 - `app.js`：起卦、排卦、断语、历史记录、AI 请求逻辑。
-- `ai-config.js`：AI 地址、key、模型名配置。
+- `server.js`：AI 后端代理，不把 key 暴露给浏览器。
+- `ai-config.js`：公开前端占位配置，默认走 `/api/chat/completions`。
+- `Dockerfile` / `Dockerfile.api` / `docker-compose.yml`：前端静态服务和 AI 代理部署配置。

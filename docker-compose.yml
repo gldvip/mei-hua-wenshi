@@ -4,4 +4,15 @@ services:
     container_name: mei-hua-wenshi
     ports:
       - "3007:80"
+    depends_on:
+      - ai-proxy
+    restart: unless-stopped
+
+  ai-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: mei-hua-wenshi-ai-proxy
+    env_file:
+      - .env
     restart: unless-stopped

@@ -491,11 +491,11 @@ async function requestAiReading(result) {
   const config = window.MEI_HUA_AI_CONFIG || {};
   const button = document.querySelector("#aiButton");
   const output = document.querySelector("#aiOutput");
-  const baseUrl = String(config.baseUrl || "").replace(/\/$/, "");
+  const aiTarget = getAiTarget(config);
 
-  if (!baseUrl || !config.apiKey || !config.model) {
+  if (!aiTarget.url) {
     output.classList.add("is-visible");
-    renderAiNote(output, "AI 配置还没填写。请在 ai-config.js 中补充 baseUrl、apiKey、model。");
+    renderAiNote(output, "AI 后端服务还没配置好。请检查服务端 .env。");
     return;
   }
 
@@ -505,15 +505,12 @@ async function requestAiReading(result) {
   renderAiNote(output, "正在整理卦象与问题...");
 
   try {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const response = await fetch(aiTarget.url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`
-      },
+      headers: aiTarget.headers,
       body: JSON.stringify({
-        model: config.model,
-        temperature: config.temperature ?? 0.72,
+        model: aiTarget.model,
+        temperature: aiTarget.temperature,
         messages: [
           {
             role: "system",
@@ -551,7 +548,7 @@ async function requestFollowup(result) {
   const error = document.querySelector("#chatError");
   const question = input.value.trim();
   const config = window.MEI_HUA_AI_CONFIG || {};
-  const baseUrl = String(config.baseUrl || "").replace(/\/$/, "");
+  const aiTarget = getAiTarget(config);
 
   error.textContent = "";
   if (!question) {
@@ -559,8 +556,8 @@ async function requestFollowup(result) {
     return;
   }
 
-  if (!baseUrl || !config.apiKey || !config.model) {
-    error.textContent = "AI 配置还没填写完整。";
+  if (!aiTarget.url) {
+    error.textContent = "AI 后端服务还没配置好。";
     return;
   }
 
@@ -575,10 +572,7 @@ async function requestFollowup(result) {
 
   try {
     const answer = await requestChatCompletion({
-      baseUrl,
-      apiKey: config.apiKey,
-      model: config.model,
-      temperature: config.temperature ?? 0.72,
+      ...aiTarget,
       messages: buildFollowupMessages(result, session)
     });
 
@@ -596,12 +590,9 @@ async function requestFollowup(result) {
 }
 
 async function requestChatCompletion(payload) {
-  const response = await fetch(`${payload.baseUrl}/chat/completions`, {
+  const response = await fetch(payload.url, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${payload.apiKey}`
-    },
+    headers: payload.headers,
     body: JSON.stringify({
       model: payload.model,
       temperature: payload.temperature,
@@ -615,6 +606,33 @@ async function requestChatCompletion(payload) {
 
   const data = await response.json();
   return cleanAiText(data.choices?.[0]?.message?.content?.trim() || "AI 没有返回可读内容。");
+}
+
+function getAiTarget(config) {
+  const proxyUrl = String(config.proxyUrl || "/api/chat/completions").trim();
+  const baseUrl = String(config.baseUrl || "").replace(/\/$/, "");
+  const isLocalPage = !location.hostname || location.hostname === "localhost" || location.hostname === "127.0.0.1";
+
+  if (isLocalPage && baseUrl && config.apiKey && config.model) {
+    return {
+      url: baseUrl.endsWith("/chat/completions") ? baseUrl : `${baseUrl}/chat/completions`,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.apiKey}`
+      },
+      model: config.model,
+      temperature: config.temperature ?? 0.72
+    };
+  }
+
+  return {
+    url: proxyUrl,
+    headers: {
+      "Content-Type": "application/json"
+    },
+    model: config.model || "",
+    temperature: config.temperature ?? 0.72
+  };
 }
 
 function buildFollowupMessages(result, session) {

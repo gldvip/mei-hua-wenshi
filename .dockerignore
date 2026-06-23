@@ -1,4 +1,5 @@
 ai-config.local.js
+.env
 check-*.png
 .git
 .DS_Store

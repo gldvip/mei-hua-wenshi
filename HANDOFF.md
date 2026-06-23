@@ -69,24 +69,22 @@ file:///Users/luck/cccode/mei-hua-wenshi/index.html
 
 ## AI 配置
 
-AI 配置在：
+公网部署时 AI 不再把 key 放进前端。前端请求：
 
 ```text
-ai-config.js
+POST /api/chat/completions
 ```
 
-格式：
+后端代理配置在本机 `.env`，格式参考 `.env.example`：
 
-```js
-window.MEI_HUA_AI_CONFIG = {
-  baseUrl: "你的接口地址",
-  apiKey: "你的 key",
-  model: "你的模型名",
-  temperature: 0.72
-};
+```text
+AI_BASE_URL=你的接口地址
+AI_API_KEY=你的 key
+AI_MODEL=你的模型名
+AI_TEMPERATURE=0.72
 ```
 
-当前调用方式兼容常见 OpenAI 风格接口：
+当前后端调用方式兼容常见 OpenAI 风格接口：
 
 ```text
 POST {baseUrl}/chat/completions
@@ -94,8 +92,8 @@ POST {baseUrl}/chat/completions
 
 注意：
 
-- 不要把 key 提交到公开仓库。
-- 如果接口本身已经包含 `/chat/completions`，需要改 `app.js` 里的请求拼接。
+- 不要把 `.env` 或 `ai-config.local.js` 提交到公开仓库。
+- 如果接口本身已经包含 `/chat/completions`，`server.js` 会自动识别，不重复拼接。
 - 之前出现过 `Failed to fetch`，排查发现可能是 `baseUrl` 和 `apiKey` 填反，或者浏览器 CORS 拦截。
 
 ## 已修过的问题
@@ -145,7 +143,12 @@ AI 有时返回类似：
 index.html      页面结构
 styles.css      手机端样式和玄幻视觉
 app.js          起卦、排卦、AI、追问、历史记录逻辑
-ai-config.js    AI 地址、key、模型配置
+server.js       AI 后端代理，隐藏真实 key
+ai-config.js    公开前端占位配置
+Dockerfile      前端 nginx 镜像
+Dockerfile.api  后端 AI 代理镜像
+nginx.conf      前端静态服务和 /api 反代配置
+docker-compose.yml Docker 部署配置
 README.md       项目说明
 HANDOFF.md      当前交接说明
 ```
@@ -210,6 +213,6 @@ check-ai-cleaned.png
 到新电脑后：
 
 1. 打开 `index.html`。
-2. 检查 `ai-config.js` 是否有你的 AI 配置。
-3. 如果复制时不想带 key，可以只复制代码，再手动重新填写 `ai-config.js`。
+2. 如果要启用公网 AI，复制 `.env.example` 为 `.env` 并填写服务端 AI 配置。
+3. 如果只在本机直接打开 HTML 调试，可以使用被忽略的 `ai-config.local.js`。
 4. 浏览器 `localStorage` 不会随文件复制自动迁移，历史问事记录和追问记录如果要迁移，需要单独导出。
