@@ -10,12 +10,12 @@
         <view>
           <text class="eyebrow">MEI HUA WEN SHI</text>
           <text class="title">玄问临占</text>
-          <text class="subtitle">{{ user ? personalName || "已登录" : "登录后保存问卜" }}</text>
+          <text class="subtitle">{{ showReviewMode ? "今日灵感体验" : user ? personalName || "已登录" : "登录后保存问卜" }}</text>
         </view>
       </view>
       <view class="topbar-actions">
-        <button v-if="user" class="plain-button small topbar-logout" @click="logout">退出</button>
-        <button class="icon-button" aria-label="打开记录" @click="setHistoryOpen(true)">
+        <button v-if="!showReviewMode && user" class="plain-button small topbar-logout" @click="logout">退出</button>
+        <button v-if="!showReviewMode" class="icon-button" aria-label="打开记录" @click="setHistoryOpen(true)">
           <text class="menu-line"></text>
           <text class="menu-line"></text>
           <text class="menu-line"></text>
@@ -23,7 +23,62 @@
       </view>
     </view>
 
-    <view v-if="!user" class="auth-panel">
+    <view v-if="appConfigLoading" class="auth-panel">
+      <view class="panel-head compact-head">
+        <view>
+          <text class="panel-kicker">LOADING</text>
+          <text class="panel-title">正在进入</text>
+        </view>
+      </view>
+    </view>
+
+    <view v-else-if="showReviewMode" class="review-panel">
+      <view class="panel-head">
+        <view>
+          <text class="panel-kicker">TODAY</text>
+          <text class="panel-title">今日灵感签</text>
+        </view>
+        <text class="daily-limit">体验版</text>
+      </view>
+      <view class="field">
+        <text class="label">今日所想</text>
+        <textarea
+          v-model="reviewQuestion"
+          class="question-input daily-input"
+          placeholder="可写下今天最想确认的一件小事。"
+          :maxlength="-1"
+        />
+      </view>
+      <view class="shake-stage" :class="{ 'is-shaking': reviewDrawing, 'has-result': reviewOracle }">
+        <view class="tube">
+          <text class="stick one"></text>
+          <text class="stick two"></text>
+          <text class="stick three"></text>
+        </view>
+        <view v-if="reviewOracle" class="fallen-stick">
+          <text>{{ reviewOracle.label }}</text>
+        </view>
+      </view>
+      <button class="primary-action" :disabled="reviewDrawing" @click="drawReviewOracle">
+        <text>{{ reviewDrawing ? "正在抽取" : "抽今日灵感" }}</text>
+        <text class="arrow-line"></text>
+      </button>
+      <view v-if="reviewOracle" class="daily-result">
+        <view class="daily-sign-head">
+          <view>
+            <text class="daily-sign-name">{{ reviewOracle.name }}</text>
+            <text class="meta">{{ todayKey }} · {{ reviewOracle.label }}</text>
+          </view>
+          <text class="verdict-badge">{{ reviewOracle.label }}</text>
+        </view>
+        <text class="daily-poem">{{ reviewOracle.poem }}</text>
+        <view class="reading-list">
+          <text v-for="item in reviewOracle.reading" :key="item" class="reading-item">{{ item }}</text>
+        </view>
+      </view>
+    </view>
+
+    <view v-else-if="!user" class="auth-panel">
       <view class="panel-head">
         <view>
           <text class="panel-kicker">ACCOUNT</text>
@@ -554,6 +609,32 @@ const methodFilters = [
   { key: "strategy", label: "策略" },
   { key: "self", label: "个人" }
 ];
+const reviewSigns = [
+  {
+    name: "清风拂案",
+    label: "宜缓",
+    poem: "急处先停半步，静中自有回音。",
+    reading: ["今天适合先理清顺序，再推进关键一步。", "遇到催促时不急着表态，留一点确认空间。"]
+  },
+  {
+    name: "灯火初明",
+    label: "可试",
+    poem: "一点微光可引路，小行胜过久徘徊。",
+    reading: ["适合做一个低成本尝试，用结果判断下一步。", "不要把事情一次做满，先拿到真实反馈。"]
+  },
+  {
+    name: "云开见月",
+    label: "渐顺",
+    poem: "前路未必全明，所行处已有光。",
+    reading: ["今天的阻力会比想象中小，但仍要按节奏来。", "把话说清，把边界立住，事情会更稳。"]
+  },
+  {
+    name: "石上听泉",
+    label: "宜守",
+    poem: "不争一时快慢，守住便是转机。",
+    reading: ["暂时不适合强推，适合观察对方反应。", "先保留资源和情绪，等待更明确的信号。"]
+  }
+];
 const methodGuides = [
   {
     key: "daily",
@@ -685,6 +766,9 @@ const dailyQuestion = ref("");
 const dailyOracle = ref(null);
 const dailyDrawing = ref(false);
 const dailyError = ref("");
+const reviewQuestion = ref("");
+const reviewOracle = ref(null);
+const reviewDrawing = ref(false);
 const current = ref(null);
 const history = ref(loadJsonStorage("mei-hua-history", []));
 const aiSessions = ref(loadJsonStorage("mei-hua-ai-sessions", {}));
@@ -729,6 +813,8 @@ const personalInfoError = ref("");
 const autoLocation = ref(loadJsonStorage("wenshi-auto-location", null));
 const locationLoading = ref(false);
 const locationError = ref("");
+const appConfigLoading = ref(true);
+const miniProgramReviewMode = ref(false);
 
 const selectedTagLabels = computed(() => selectedTags.value.filter((label) => quickTags.some((tag) => tag.label === label)));
 const visibleMethodGuides = computed(() => getMethodGuidesByFilter(methodFilter.value));
@@ -741,6 +827,7 @@ const personalInfoSummary = computed(() => buildPersonalInfoSummary());
 const locationText = computed(() => formatLocation(autoLocation.value));
 const canCastAdvanced = computed(() => advancedMethod.value !== "personal" || hasRequiredPersonalInfo.value);
 const todayKey = computed(() => getTodayKey());
+const showReviewMode = computed(() => miniProgramReviewMode.value && isMiniProgramRuntime());
 
 const currentSession = computed(() => {
   if (!current.value) return { reading: "", messages: [] };
@@ -749,8 +836,20 @@ const currentSession = computed(() => {
 
 dailyOracle.value = loadDailyOracle();
 
-if (authToken.value) {
-  loadMe();
+loadAppConfig();
+
+async function loadAppConfig() {
+  try {
+    const payload = await requestGet("/api/app-config", { skipAuth: true });
+    miniProgramReviewMode.value = Boolean(payload.miniProgramReviewMode);
+  } catch {
+    miniProgramReviewMode.value = false;
+  } finally {
+    appConfigLoading.value = false;
+    if (!showReviewMode.value && authToken.value) {
+      loadMe();
+    }
+  }
 }
 
 async function submitAuth() {
@@ -949,6 +1048,19 @@ function openSelectedMethod() {
 
   if (selectedGuideKey.value === "mei") {
     activeSection.value = "mei";
+  }
+}
+
+async function drawReviewOracle() {
+  reviewDrawing.value = true;
+  reviewOracle.value = null;
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 760));
+    const seed = `${getTodayKey()}:${reviewQuestion.value.trim()}`;
+    const index = Array.from(seed).reduce((sum, char) => sum + char.charCodeAt(0), 0) % reviewSigns.length;
+    reviewOracle.value = reviewSigns[index];
+  } finally {
+    reviewDrawing.value = false;
   }
 }
 
@@ -1230,6 +1342,10 @@ function resolveApiUrl(url) {
   if (/^https?:\/\//.test(url)) return url;
   if (typeof window === "undefined") return `${API_BASE_URL}${url}`;
   return url;
+}
+
+function isMiniProgramRuntime() {
+  return typeof wx !== "undefined" && typeof window === "undefined";
 }
 
 function loadDailyOracle() {
@@ -1763,6 +1879,7 @@ button:active {
 
 .question-panel,
 .auth-panel,
+.review-panel,
 .personal-panel,
 .tag-panel,
 .daily-panel,
@@ -1787,6 +1904,7 @@ button:active {
 
 .question-panel,
 .auth-panel,
+.review-panel,
 .personal-panel,
 .tag-panel,
 .daily-panel,
@@ -1798,6 +1916,7 @@ button:active {
 
 .daily-panel,
 .auth-panel,
+.review-panel,
 .personal-panel,
 .tag-panel,
 .method-guide {
@@ -2934,7 +3053,8 @@ button:active {
     padding-bottom: 8px;
   }
 
-  .auth-panel {
+  .auth-panel,
+  .review-panel {
     grid-column: 1 / -1;
     width: min(100%, 460px);
     justify-self: center;
@@ -2981,6 +3101,7 @@ button:active {
 
   .question-panel,
   .auth-panel,
+  .review-panel,
   .personal-panel,
   .tag-panel,
   .daily-panel,

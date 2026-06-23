@@ -6,6 +6,7 @@ const userStore = require("./userStore");
 
 const PORT = Number(process.env.PORT || 8787);
 const MAX_BODY_SIZE = 1024 * 1024;
+const MINI_PROGRAM_REVIEW_MODE = String(process.env.MINI_PROGRAM_REVIEW_MODE || "").toLowerCase() === "true";
 
 function getAiEndpoint() {
   const baseUrl = String(process.env.AI_BASE_URL || "").replace(/\/$/, "");
@@ -185,6 +186,13 @@ const server = http.createServer(async (request, response) => {
 
   if (request.method === "GET" && pathname === "/api/health") {
     sendJson(response, 200, { ok: true });
+    return;
+  }
+
+  if (request.method === "GET" && pathname === "/api/app-config") {
+    sendJson(response, 200, {
+      miniProgramReviewMode: MINI_PROGRAM_REVIEW_MODE
+    });
     return;
   }
 

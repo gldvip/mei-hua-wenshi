@@ -62,6 +62,7 @@ AI_API_KEY=你的 key
 AI_MODEL=你的模型名
 AI_TEMPERATURE=0.72
 CAST_COOLDOWN_ENABLED=false
+MINI_PROGRAM_REVIEW_MODE=false
 ```
 
 当前按常见 OpenAI 风格接口调用：
@@ -123,6 +124,12 @@ dist/build/mp-weixin
 2. 微信公众平台填写版本说明，提交审核。
 3. 审核通过后发布。
 4. 如果涉及登录、定位、AI 解读，需要在小程序后台补充隐私协议、服务类目和用户授权说明。
+
+审核模式：
+
+- 提交审核前，把服务端 `.env` 的 `MINI_PROGRAM_REVIEW_MODE=true`，小程序会显示纯前端“今日灵感签”体验页，不展示登录、定位、AI 和复杂问卜。
+- 审核通过后，把 `MINI_PROGRAM_REVIEW_MODE=false` 并重启后端容器，小程序会自动恢复完整功能，不需要重新提交版本。
+- H5 不受审核模式影响。
 
 ## 后续计划
 
