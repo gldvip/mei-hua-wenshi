@@ -186,6 +186,21 @@
         <view class="reading-list">
           <text v-for="item in dailyOracle.reading" :key="item" class="reading-item">{{ item }}</text>
         </view>
+        <view class="ai-box">
+          <button class="ai-action" :disabled="dailyAiLoading" @click="requestDailyAiReading">
+            <text>{{ dailyAiLoading ? "正在深断" : "AI 深断" }}</text>
+            <text class="arrow-line"></text>
+          </button>
+          <view v-if="dailyAiVisible" class="ai-output">
+            <view v-if="dailyAiNote" class="ai-note">{{ dailyAiNote }}</view>
+            <view v-else class="ai-report">
+              <view v-for="(section, index) in dailyAiSections" :key="section.title + index" class="ai-section">
+                <text class="ai-title">{{ section.title }}</text>
+                <text v-for="paragraph in section.paragraphs" :key="paragraph" class="ai-paragraph">{{ paragraph }}</text>
+              </view>
+            </view>
+          </view>
+        </view>
       </view>
     </view>
 
@@ -276,6 +291,21 @@
           </view>
           <view class="reading-list">
             <text v-for="item in advancedResult.reading" :key="item" class="reading-item">{{ item }}</text>
+          </view>
+          <view class="ai-box">
+            <button class="ai-action" :disabled="advancedAiLoading" @click="requestAdvancedAiReading">
+              <text>{{ advancedAiLoading ? "正在深断" : "AI 深断" }}</text>
+              <text class="arrow-line"></text>
+            </button>
+            <view v-if="advancedAiVisible" class="ai-output">
+              <view v-if="advancedAiNote" class="ai-note">{{ advancedAiNote }}</view>
+              <view v-else class="ai-report">
+                <view v-for="(section, index) in advancedAiSections" :key="section.title + index" class="ai-section">
+                  <text class="ai-title">{{ section.title }}</text>
+                  <text v-for="paragraph in section.paragraphs" :key="paragraph" class="ai-paragraph">{{ paragraph }}</text>
+                </view>
+              </view>
+            </view>
           </view>
         </view>
       </view>
@@ -520,6 +550,14 @@ const aiVisible = ref(false);
 const aiLoading = ref(false);
 const aiNote = ref("");
 const aiSections = ref([]);
+const dailyAiVisible = ref(false);
+const dailyAiLoading = ref(false);
+const dailyAiNote = ref("");
+const dailyAiSections = ref([]);
+const advancedAiVisible = ref(false);
+const advancedAiLoading = ref(false);
+const advancedAiNote = ref("");
+const advancedAiSections = ref([]);
 const followupInput = ref("");
 const followupLoading = ref(false);
 const chatError = ref("");
@@ -739,6 +777,7 @@ function selectMethodGuide(item) {
   activeSection.value = "methods";
   advancedError.value = "";
   advancedResult.value = null;
+  resetAdvancedAiState();
 }
 
 async function cast() {
@@ -789,6 +828,7 @@ async function castAdvanced() {
     });
     advancedResult.value = result;
     activeSection.value = "methods";
+    resetAdvancedAiState();
     saveResult(result);
   } catch (error) {
     advancedError.value = `推演失败：${error.message}`;
@@ -812,11 +852,62 @@ async function drawDailyOracle() {
       tags: selectedTagLabels.value
     });
     dailyOracle.value = result;
+    resetDailyAiState();
     setJsonStorage(getDailyOracleStorageKey(), result);
   } catch (error) {
     dailyError.value = `摇签失败：${error.message}`;
   } finally {
     dailyDrawing.value = false;
+  }
+}
+
+async function requestDailyAiReading() {
+  if (!dailyOracle.value) return;
+  await requestContextAiReading({
+    prompt: buildDailyAiPrompt(dailyOracle.value),
+    loading: dailyAiLoading,
+    visible: dailyAiVisible,
+    note: dailyAiNote,
+    sections: dailyAiSections,
+    system:
+      "你是传统问卜和签文解读助手。根据今日签、问题、定位和个人信息做白话深断。不要使用 Markdown，不要输出星号、井号、粗体符号。不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。"
+  });
+}
+
+async function requestAdvancedAiReading() {
+  if (!advancedResult.value) return;
+  await requestContextAiReading({
+    prompt: buildAdvancedAiPrompt(advancedResult.value),
+    loading: advancedAiLoading,
+    visible: advancedAiVisible,
+    note: advancedAiNote,
+    sections: advancedAiSections,
+    system:
+      "你是传统问卜解读助手。根据用户提供的起占方式、结果、事实和问题做白话深断。不要重新起卦，不要使用 Markdown，不要输出星号、井号、粗体符号。不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。"
+  });
+}
+
+async function requestContextAiReading({ prompt, loading, visible, note, sections, system }) {
+  loading.value = true;
+  visible.value = true;
+  note.value = "正在整理问卜结果...";
+  sections.value = [];
+
+  try {
+    const data = await requestJson("/api/chat/completions", {
+      temperature: 0.72,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: prompt }
+      ]
+    });
+    const content = cleanAiText(data.choices?.[0]?.message?.content?.trim() || "AI 没有返回可读内容。");
+    note.value = "";
+    sections.value = parseAiSections(content);
+  } catch (error) {
+    note.value = `AI 请求失败：${error.message}`;
+  } finally {
+    loading.value = false;
   }
 }
 
@@ -996,6 +1087,56 @@ function buildAiPrompt(result) {
   ].filter(Boolean).join("\n");
 }
 
+function buildDailyAiPrompt(result) {
+  return [
+    `方式：今日签`,
+    `问题：${result.question || "今日总体"}`,
+    `日期：${result.dateKey}`,
+    `签号：第 ${result.signNumber}/${result.totalSigns} 签`,
+    `签名：${result.sign.name}`,
+    `吉凶：${result.sign.fortune}`,
+    `签诗：${result.sign.poem}`,
+    result.sign.keywords?.length ? `关键词：${result.sign.keywords.join("、")}` : "",
+    result.location ? `定位：${result.location}` : locationText.value ? `定位：${locationText.value}` : "",
+    result.personalInfo ? `个人信息：${result.personalInfo}` : personalInfoSummary.value ? `个人信息：${personalInfoSummary.value}` : "",
+    result.reading?.length ? `当前解读：${result.reading.join("；")}` : "",
+    "请按以下结构输出，标题必须用中文冒号，不要使用 Markdown，不要输出星号或粗体符号：局势：、阻碍：、转机：、应对：、结果倾向：。语气直接一点，别太玄。"
+  ].filter(Boolean).join("\n");
+}
+
+function buildAdvancedAiPrompt(result) {
+  return [
+    `方式：${result.methodLabel}`,
+    `问题：${result.question}`,
+    `事项：${result.category}`,
+    result.tags?.length ? `标签：${result.tags.join("、")}` : "",
+    result.location ? `定位：${result.location}` : locationText.value ? `定位：${locationText.value}` : "",
+    result.personalInfo ? `个人信息：${result.personalInfo}` : personalInfoSummary.value ? `个人信息：${personalInfoSummary.value}` : "",
+    `结论：${result.verdict}`,
+    `摘要：${result.summary}`,
+    result.facts?.length ? `事实：${result.facts.map((fact) => `${fact[0]}=${fact[1]}`).join("；")}` : "",
+    buildAdvancedExtraSummary(result),
+    result.reading?.length ? `基础断语：${result.reading.join("；")}` : "",
+    "请按以下结构输出，标题必须用中文冒号，不要使用 Markdown，不要输出星号或粗体符号：局势：、阻碍：、转机：、应对：、结果倾向：。语气直接一点，别太玄。"
+  ].filter(Boolean).join("\n");
+}
+
+function buildAdvancedExtraSummary(result) {
+  if (result.extra?.plate?.length) {
+    return `九宫：${result.extra.plate.map((item) => `${item.palace}${item.door}/${item.star}/${item.god}`).join("；")}`;
+  }
+  if (result.extra?.lines?.length) {
+    return `爻象：${result.extra.lines.map((item) => `第${item.line}爻${item.name}${item.moving ? "动" : ""}`).join("；")}`;
+  }
+  if (result.extra?.state?.name) {
+    return `小六壬：${result.extra.state.name}，${result.extra.state.nature}`;
+  }
+  if (result.extra?.stem && result.extra?.branch) {
+    return `个人盘：${result.extra.stem}${result.extra.branch}，生肖${result.extra.zodiac}，五行${result.extra.element}`;
+  }
+  return "";
+}
+
 function buildFollowupMessages(result, session) {
   const recentMessages = session.messages.slice(-10).map((message) => ({
     role: message.role,
@@ -1115,6 +1256,7 @@ function restoreHistory(item) {
     selectedGuideKey.value = item.type;
     advancedResult.value = item;
     activeSection.value = "methods";
+    resetAdvancedAiState();
   } else {
     selectedGuideKey.value = "mei";
     current.value = item;
@@ -1164,6 +1306,20 @@ function resetAiState() {
   aiSections.value = [];
   followupInput.value = "";
   chatError.value = "";
+}
+
+function resetDailyAiState() {
+  dailyAiVisible.value = false;
+  dailyAiLoading.value = false;
+  dailyAiNote.value = "";
+  dailyAiSections.value = [];
+}
+
+function resetAdvancedAiState() {
+  advancedAiVisible.value = false;
+  advancedAiLoading.value = false;
+  advancedAiNote.value = "";
+  advancedAiSections.value = [];
 }
 
 function loadJsonStorage(key, fallback) {
