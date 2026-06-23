@@ -1,12 +1,13 @@
 # 玄问临占
 
-一个自己使用的传统临时问事工具，当前先做梅花易数起卦，界面以手机端为主，后续可迁移为小程序。
+一个自己使用的传统临时问事工具，当前先做梅花易数起卦，前端使用 uni-app + Vue 3，先发布 H5，后续可迁移为小程序或 App。
 
 ## 当前定位
 
 - 不做商业化，不考虑付费和拉新。
 - 重点不是八字人生盘，而是临时问事。
 - 第一版先做梅花易数，后续再加六爻、小六壬、奇门。
+- 前端选型为 uni-app + Vue 3，方便后续发布 H5、微信小程序和 App。
 - 规则计算固定在后端接口，前端只负责渲染，AI 只负责白话深断。
 
 ## 已实现
@@ -63,10 +64,10 @@ POST /api/chat/completions
 
 ## 文件说明
 
-- `index.html`：页面结构。
-- `styles.css`：手机端玄幻风界面样式。
-- `app.js`：表单交互、结果渲染、历史记录、AI 请求逻辑。
+- `src/pages/index/index.vue`：首页页面、样式、结果渲染、历史记录、AI 请求逻辑。
+- `src/pages.json` / `src/manifest.json`：uni-app 页面和平台配置。
+- `index.html` / `vite.config.js`：H5 构建入口和 Vite 配置。
 - `divination.js`：后端起卦、排卦、体用、生克、断语规则。
 - `server.js`：AI 后端代理，不把 key 暴露给浏览器。
-- `ai-config.js`：公开前端占位配置，默认走 `/api/chat/completions`。
+- `package.json`：uni-app + Vue 3 前端依赖和构建脚本。
 - `Dockerfile` / `Dockerfile.api` / `docker-compose.yml`：前端静态服务和 AI 代理部署配置。

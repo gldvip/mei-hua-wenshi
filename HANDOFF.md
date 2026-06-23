@@ -25,6 +25,7 @@ file:///Users/luck/cccode/mei-hua-wenshi/index.html
 - 梅花易数问事。
 - 手机端优先。
 - 界面简洁但带玄幻氛围。
+- 前端使用 uni-app + Vue 3，当前发布 H5，后续可迁移微信小程序或 App。
 - 规则排卦固定在后端接口，前端只负责渲染，AI 负责白话深断和追问解释。
 
 ## 当前已实现
@@ -140,13 +141,15 @@ AI 有时返回类似：
 ## 主要文件
 
 ```text
-index.html      页面结构
-styles.css      手机端样式和玄幻视觉
-app.js          表单交互、结果渲染、AI、追问、历史记录逻辑
+src/pages/index/index.vue uni-app 首页、样式、结果渲染、AI、追问、历史记录逻辑
+src/pages.json  uni-app 页面配置
+src/manifest.json uni-app 平台配置
+index.html      H5 构建入口
+vite.config.js  uni-app Vite 配置
+package.json    uni-app + Vue 3 依赖和脚本
 divination.js   后端起卦、排卦、体用、生克、断语规则
 server.js       后端接口：起卦计算和 AI 代理
-ai-config.js    公开前端占位配置
-Dockerfile      前端 nginx 镜像
+Dockerfile      前端 H5 构建 + nginx 镜像
 Dockerfile.api  后端 AI 代理镜像
 nginx.conf      前端静态服务和 /api 反代配置
 docker-compose.yml Docker 部署配置

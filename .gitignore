@@ -1,4 +1,6 @@
 ai-config.local.js
 .env
+dist
+node_modules
 check-*.png
 .DS_Store

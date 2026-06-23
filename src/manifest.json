@@ -1,0 +1,19 @@
+{
+  "name": "玄问临占",
+  "appid": "__UNI__MEIHUA",
+  "description": "传统临时问事工具",
+  "versionName": "0.1.0",
+  "versionCode": "1",
+  "h5": {
+    "title": "玄问临占",
+    "router": {
+      "mode": "history"
+    }
+  },
+  "mp-weixin": {
+    "appid": "",
+    "setting": {
+      "urlCheck": false
+    }
+  }
+}
