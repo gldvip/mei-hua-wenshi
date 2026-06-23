@@ -49,19 +49,6 @@
     </view>
 
     <template v-else>
-    <view class="mobile-tag-dock">
-      <view class="mobile-tag-strip">
-        <button
-          v-for="tag in quickTags"
-          :key="tag.label"
-          class="tag-chip compact"
-          :class="{ 'is-active': selectedTags.includes(tag.label) }"
-          @click="toggleTag(tag)"
-        >
-          {{ tag.label }}
-        </button>
-      </view>
-    </view>
     <view class="mobile-bottom-nav">
       <button
         v-for="item in sectionTabs"
@@ -1393,7 +1380,6 @@ button {
   backdrop-filter: blur(18px);
 }
 
-.mobile-tag-dock,
 .mobile-bottom-nav {
   display: none;
 }
@@ -1553,13 +1539,6 @@ button {
   border-color: rgba(150, 200, 184, 0.38);
   color: #fff7df;
   background: rgba(42, 92, 85, 0.28);
-}
-
-.tag-chip.compact {
-  flex: 0 0 auto;
-  min-height: 34px;
-  padding: 0 11px;
-  font-size: 13px;
 }
 
 .chip.is-active,
@@ -2260,20 +2239,6 @@ button {
     padding-bottom: calc(96px + env(safe-area-inset-bottom));
   }
 
-  .mobile-tag-dock {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    display: block;
-    margin: -2px 0 12px;
-    border: 1px solid rgba(218, 183, 103, 0.14);
-    border-radius: 8px;
-    padding: 9px;
-    background: rgba(15, 19, 17, 0.92);
-    box-shadow: 0 18px 42px -30px rgba(5, 5, 4, 0.9);
-    backdrop-filter: blur(18px);
-  }
-
   .mobile-bottom-nav {
     position: fixed;
     left: max(12px, env(safe-area-inset-left));
@@ -2306,19 +2271,6 @@ button {
   .mobile-tab.is-active {
     color: #101210;
     background: linear-gradient(135deg, #dab767, #b98a45 72%, #96c8b8);
-  }
-
-  .mobile-tag-strip {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 1px;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .mobile-tag-strip::-webkit-scrollbar {
-    display: none;
   }
 
   .tag-panel {
