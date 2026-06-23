@@ -211,9 +211,20 @@
           <text class="panel-title">问卜方式</text>
         </view>
       </view>
+      <view class="method-filter-row">
+        <button
+          v-for="item in methodFilters"
+          :key="item.key"
+          class="method-filter"
+          :class="{ 'is-active': methodFilter === item.key }"
+          @click="methodFilter = item.key"
+        >
+          {{ item.label }}
+        </button>
+      </view>
       <view class="method-grid">
         <button
-          v-for="item in methodGuides"
+          v-for="item in visibleMethodGuides"
           :key="item.name"
           class="method-card"
           :class="{ 'is-ready': item.ready, 'is-selected': selectedGuideKey === item.key }"
@@ -223,8 +234,33 @@
             <text class="method-name">{{ item.name }}</text>
             <text class="method-status">{{ selectedGuideKey === item.key ? "已选" : item.ready ? "可用" : "后续" }}</text>
           </view>
+          <view class="method-meta-row">
+            <text>{{ item.speed }}</text>
+            <text>{{ item.depth }}</text>
+            <text>{{ item.input }}</text>
+          </view>
           <text class="method-fit">{{ item.fit }}</text>
+          <view class="method-scope-row">
+            <text v-for="scope in item.scopes" :key="scope">{{ scope }}</text>
+          </view>
         </button>
+      </view>
+
+      <view v-if="selectedMethodGuide" class="method-detail">
+        <view class="method-detail-head">
+          <view>
+            <text class="method-name">{{ selectedMethodGuide.name }}</text>
+            <text class="method-fit">{{ selectedMethodGuide.fit }}</text>
+          </view>
+          <text class="method-status">{{ selectedMethodGuide.groupLabel }}</text>
+        </view>
+        <view class="analysis-grid">
+          <view class="fact-row"><text>适合</text><text>{{ selectedMethodGuide.scopes.join("、") }}</text></view>
+          <view class="fact-row"><text>需要</text><text>{{ selectedMethodGuide.required }}</text></view>
+          <view class="fact-row"><text>起法</text><text>{{ selectedMethodGuide.castMode }}</text></view>
+          <view class="fact-row"><text>结果</text><text>{{ selectedMethodGuide.resultShape }}</text></view>
+          <view class="fact-row"><text>AI</text><text>{{ selectedMethodGuide.aiFocus }}</text></view>
+        </view>
       </view>
 
       <view v-if="isAdvancedMethod" class="advanced-tool">
@@ -502,13 +538,110 @@ const quickTags = [
   { label: "家宅" },
   { label: "健康" }
 ];
+const methodFilters = [
+  { key: "all", label: "全部" },
+  { key: "fast", label: "快断" },
+  { key: "event", label: "问事" },
+  { key: "strategy", label: "策略" },
+  { key: "self", label: "个人" }
+];
 const methodGuides = [
-  { key: "daily", name: "今日签", ready: true, fit: "适合今日状态、轻量提醒、当天宜忌与行动校准。" },
-  { key: "mei", name: "梅花易数", ready: true, fit: "适合一事一问、临时起意、看当前气机和走势。" },
-  { key: "xiaoliuren", name: "小六壬", ready: true, fit: "适合快速判断来不来、成不成、等不等、去不去。" },
-  { key: "liuyao", name: "六爻", ready: true, fit: "适合重要事项、关系复杂、要看动爻、变化和应期。" },
-  { key: "qimen", name: "奇门", ready: true, fit: "适合行动策略、方位选择、布局和大方向判断。" },
-  { key: "personal", name: "个人盘", ready: true, fit: "适合长期背景、阶段趋势和个人状态，不适合临时小事。" }
+  {
+    key: "daily",
+    group: "fast",
+    groupLabel: "日课",
+    name: "今日签",
+    ready: true,
+    speed: "最快",
+    depth: "轻量",
+    input: "自动",
+    fit: "适合今日状态、轻量提醒、当天宜忌与行动校准。",
+    scopes: ["今日运势", "当天宜忌", "情绪校准"],
+    required: "账号个人信息可选，定位自动带入。",
+    castMode: "一日一签，后端按账号复用当日结果。",
+    resultShape: "签名、签诗、关键词、基础解签、AI 深断。",
+    aiFocus: "把签意落到当天行动建议。"
+  },
+  {
+    key: "mei",
+    group: "event",
+    groupLabel: "临占",
+    name: "梅花易数",
+    ready: true,
+    speed: "较快",
+    depth: "中等",
+    input: "时间/数字",
+    fit: "适合一事一问、临时起意、看当前气机和走势。",
+    scopes: ["临时起意", "短期走势", "成败倾向"],
+    required: "需要写清一个具体问题，可选时间起卦或数字起卦。",
+    castMode: "时间起卦或三数起卦，排本卦、互卦、变卦。",
+    resultShape: "本互变卦、动爻、体用、生克、白话断语、AI 深断和追问。",
+    aiFocus: "解释体用生克和动爻对应的阻碍、转机、应对。"
+  },
+  {
+    key: "xiaoliuren",
+    group: "fast",
+    groupLabel: "快断",
+    name: "小六壬",
+    ready: true,
+    speed: "最快",
+    depth: "简断",
+    input: "月日时",
+    fit: "适合快速判断来不来、成不成、等不等、去不去。",
+    scopes: ["等消息", "去不去", "能不能成"],
+    required: "需要一个具体问题，后端自动取当前月日时。",
+    castMode: "按月、日、时取数，落大安、留连、速喜、赤口、小吉、空亡。",
+    resultShape: "落宫、倾向、快断建议、AI 深断。",
+    aiFocus: "把快断结果翻译成当下该催、该等、该避还是该试。"
+  },
+  {
+    key: "liuyao",
+    group: "event",
+    groupLabel: "重问",
+    name: "六爻",
+    ready: true,
+    speed: "中等",
+    depth: "较深",
+    input: "自动摇卦",
+    fit: "适合重要事项、关系复杂、要看动爻、变化和应期。",
+    scopes: ["重要决定", "关系变化", "应期线索"],
+    required: "需要明确问题；后续可继续加入手动摇卦和装卦。",
+    castMode: "自动生成六爻值，排本卦、变卦和动爻。",
+    resultShape: "本卦、变卦、动爻、六爻值、基础断语、AI 深断。",
+    aiFocus: "围绕动爻、变卦和阶段变化解释关键节点。"
+  },
+  {
+    key: "qimen",
+    group: "strategy",
+    groupLabel: "谋局",
+    name: "奇门",
+    ready: true,
+    speed: "中等",
+    depth: "策略",
+    input: "时局",
+    fit: "适合行动策略、方位选择、布局和大方向判断。",
+    scopes: ["行动策略", "合作谈判", "方向选择"],
+    required: "需要明确行动目标，定位会自动带入作背景参考。",
+    castMode: "按当前时局生成简化九宫盘，取门、星、神和可用宫。",
+    resultShape: "九宫门星神、建议方位、行动建议、AI 深断。",
+    aiFocus: "把可用门和宫位转成沟通、推进、避险策略。"
+  },
+  {
+    key: "personal",
+    group: "self",
+    groupLabel: "长期",
+    name: "个人盘",
+    ready: true,
+    speed: "一次填",
+    depth: "长期",
+    input: "生日",
+    fit: "适合长期背景、阶段趋势和个人状态，不适合临时小事。",
+    scopes: ["阶段趋势", "自我状态", "长期背景"],
+    required: "必须先在“我的”填写出生日期，出生时间建议填写。",
+    castMode: "按出生日期和时间生成个人长期背景提示。",
+    resultShape: "年柱、生肖、五行提示、阶段建议、AI 深断。",
+    aiFocus: "把个人背景和当前主题结合，给阶段性方向建议。"
+  }
 ];
 const advancedMethodKeys = ["xiaoliuren", "liuyao", "qimen", "personal"];
 
@@ -571,6 +704,7 @@ const authLoading = ref(false);
 const authToken = ref(getStorage("auth-token") || "");
 const user = ref(null);
 const selectedTags = ref(loadJsonStorage("wenshi-selected-tags", []));
+const methodFilter = ref("all");
 const advancedMethod = ref("xiaoliuren");
 const advancedQuestion = ref("");
 const advancedCasting = ref(false);
@@ -588,6 +722,10 @@ const locationLoading = ref(false);
 const locationError = ref("");
 
 const selectedTagLabels = computed(() => selectedTags.value.filter((label) => quickTags.some((tag) => tag.label === label)));
+const visibleMethodGuides = computed(() => methodFilter.value === "all"
+  ? methodGuides
+  : methodGuides.filter((item) => item.group === methodFilter.value));
+const selectedMethodGuide = computed(() => methodGuides.find((item) => item.key === selectedGuideKey.value) || methodGuides[0]);
 const isAdvancedMethod = computed(() => advancedMethodKeys.includes(selectedGuideKey.value));
 const currentMethodGuide = computed(() => methodGuides.find((item) => item.key === advancedMethod.value) || methodGuides[2]);
 const personalInfoReady = computed(() => Boolean(personalBirthDate.value));
@@ -1902,6 +2040,28 @@ button {
   gap: 10px;
 }
 
+.method-filter-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.method-filter {
+  min-height: 34px;
+  border: 1px solid rgba(218, 183, 103, 0.14);
+  border-radius: 8px;
+  color: #9b9384;
+  background: rgba(246, 240, 223, 0.04);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.method-filter.is-active {
+  border-color: rgba(150, 200, 184, 0.32);
+  color: #fff7df;
+  background: rgba(42, 92, 85, 0.24);
+}
+
 .method-card {
   display: grid;
   gap: 7px;
@@ -1961,6 +2121,47 @@ button {
   color: #b5ac99;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.method-meta-row,
+.method-scope-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.method-meta-row text,
+.method-scope-row text {
+  border: 1px solid rgba(150, 200, 184, 0.18);
+  border-radius: 999px;
+  padding: 4px 7px;
+  color: #96c8b8;
+  font-size: 11px;
+  background: rgba(42, 92, 85, 0.12);
+}
+
+.method-scope-row text {
+  border-color: rgba(218, 183, 103, 0.16);
+  color: #dab767;
+  background: rgba(218, 183, 103, 0.07);
+}
+
+.method-detail {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(218, 183, 103, 0.18);
+  border-radius: 8px;
+  padding: 14px;
+  background:
+    linear-gradient(135deg, rgba(218, 183, 103, 0.08), transparent 46%),
+    rgba(7, 11, 10, 0.42);
+}
+
+.method-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .advanced-tool,
