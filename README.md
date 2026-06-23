@@ -12,11 +12,19 @@
 
 ## 已实现
 
+- 手机号 + 密码登录：
+  - 每个用户只访问自己的数据。
+  - 注册后默认创建“我自己”档案。
+  - 可新增多个问卜对象档案，并随时切换当前档案。
+- 问卜标签：
+  - 顶部可多选事业、感情、财运、合作、出行、抉择、应期等标签。
+  - 业务类标签会同步梅花问事分类。
+  - 标签会随今日签和梅花问事一起进入后端结果。
 - 首页“今日问卜”：
   - 可结合今日所问、当前对象、地点、个人信息。
   - 后端随机摇签并返回解签。
   - 前端有摇签动画。
-  - 每日签结果保存在本地，当日再次打开默认复看。
+  - 后端按用户 + 档案限制一日一签，当日再次请求会复用同一结果。
 - 问卜方式说明：展示今日签、梅花易数、小六壬、六爻、奇门、个人盘分别适合的问题类型。
 - 所问之事输入。
 - 事项分类：事业、感情、财运、合作、出行、其他。
@@ -34,6 +42,7 @@
 - 本地问事记录，保存在浏览器 localStorage。
 - AI 深断按钮和接口配置预留。
 - AI 继续追问：围绕当前卦继续问不懂的地方，追问会话按卦保存到 localStorage。
+- 梅花问事后端限频：同一用户的同一档案一小时一次。
 
 ## AI 接入
 
@@ -58,7 +67,18 @@ POST {baseUrl}/chat/completions
 POST /api/chat/completions
 ```
 
-本地直接打开 `index.html` 时，可以继续用被忽略的 `ai-config.local.js` 做本地调试。
+## 部署
+
+当前 Docker 部署包含两个服务：
+
+- `mei-hua-wenshi`：uni-app H5 构建后由 nginx 服务，对外端口 `3007`。
+- `mei-hua-wenshi-ai-proxy`：后端接口服务，容器内端口 `8787`，用户数据持久化到 `./data/app-data.json`。
+
+Cloudflare Tunnel 当前公网访问：
+
+```text
+https://wenshi.cccode.com.cn
+```
 
 ## 后续计划
 
@@ -72,9 +92,10 @@ POST /api/chat/completions
 
 - `src/pages/index/index.vue`：首页页面、样式、结果渲染、历史记录、AI 请求逻辑。
 - `src/pages.json` / `src/manifest.json`：uni-app 页面和平台配置。
-- `index.html` / `vite.config.js`：H5 构建入口和 Vite 配置。
+- `index.html` / `vite.config.mjs`：H5 构建入口和 Vite 配置。
 - `divination.js`：后端起卦、排卦、体用、生克、断语规则。
 - `dailyOracle.js`：后端今日摇签签文库和解签规则。
-- `server.js`：AI 后端代理，不把 key 暴露给浏览器。
+- `userStore.js`：用户、会话、档案、今日签和问事限频数据存储。
+- `server.js`：后端接口、AI 代理，不把 key 暴露给浏览器。
 - `package.json`：uni-app + Vue 3 前端依赖和构建脚本。
 - `Dockerfile` / `Dockerfile.api` / `docker-compose.yml`：前端静态服务和 AI 代理部署配置。

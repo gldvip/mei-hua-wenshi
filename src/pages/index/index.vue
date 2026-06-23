@@ -6,8 +6,100 @@
         <text class="title">玄问临占</text>
       </view>
       <button class="icon-button" aria-label="打开记录" @click="setHistoryOpen(true)">
-        <text></text>
+        <text class="menu-line"></text>
+        <text class="menu-line"></text>
+        <text class="menu-line"></text>
       </button>
+    </view>
+
+    <view v-if="!user" class="auth-panel">
+      <view class="panel-head">
+        <view>
+          <text class="panel-kicker">ACCOUNT</text>
+          <text class="panel-title">{{ authMode === "login" ? "登录后使用" : "注册账号" }}</text>
+        </view>
+      </view>
+      <view class="field">
+        <text class="label">手机号</text>
+        <input v-model="authPhone" class="number-input" type="number" placeholder="请输入 11 位手机号" />
+      </view>
+      <view class="field">
+        <text class="label">密码</text>
+        <input v-model="authPassword" class="number-input" password placeholder="至少 6 位" />
+      </view>
+      <text class="error-text">{{ authError }}</text>
+      <button class="primary-action" :disabled="authLoading" @click="submitAuth">
+        <text>{{ authLoading ? "处理中" : authMode === "login" ? "登录" : "注册并登录" }}</text>
+        <text class="arrow-line"></text>
+      </button>
+      <button class="plain-wide-button" @click="toggleAuthMode">
+        {{ authMode === "login" ? "还没有账号，去注册" : "已有账号，去登录" }}
+      </button>
+    </view>
+
+    <template v-else>
+    <view class="profile-panel">
+      <view class="panel-head">
+        <view>
+          <text class="panel-kicker">PROFILE</text>
+          <text class="panel-title">当前档案</text>
+        </view>
+        <button class="plain-button" @click="logout">退出</button>
+      </view>
+      <view class="current-profile">
+        <text class="profile-name">{{ currentProfile?.name || "未选择" }}</text>
+        <text class="meta">{{ currentProfile?.relation || "切换问卜对象" }}{{ currentProfile?.note ? ` · ${currentProfile.note}` : "" }}</text>
+      </view>
+      <view class="profile-list">
+        <button
+          v-for="profile in profiles"
+          :key="profile.id"
+          class="profile-chip"
+          :class="{ 'is-active': profile.id === user.currentProfileId }"
+          @click="switchProfile(profile.id)"
+        >
+          {{ profile.name }}
+        </button>
+      </view>
+      <view class="add-profile">
+        <view class="daily-extra-grid">
+          <view class="field compact">
+            <text class="label">新增档案</text>
+            <input v-model="newProfileName" class="number-input" placeholder="如 某合作方" />
+          </view>
+          <view class="field compact">
+            <text class="label">关系</text>
+            <input v-model="newProfileRelation" class="number-input" placeholder="如 合作方" />
+          </view>
+        </view>
+        <view class="field compact">
+          <text class="label">备注</text>
+          <input v-model="newProfileNote" class="number-input" placeholder="可选：行业、背景、当前状态" />
+        </view>
+        <button class="plain-wide-button" :disabled="profileLoading" @click="createProfile">新增并切换</button>
+        <text class="error-text">{{ profileError }}</text>
+      </view>
+    </view>
+
+    <view class="tag-panel">
+      <view class="panel-head slim-head">
+        <view>
+          <text class="panel-kicker">TAGS</text>
+          <text class="panel-title">问卜标签</text>
+        </view>
+        <button class="plain-button small" @click="clearTags">清空</button>
+      </view>
+      <view class="tag-list">
+        <button
+          v-for="tag in quickTags"
+          :key="tag.label"
+          class="tag-chip"
+          :class="{ 'is-active': selectedTags.includes(tag.label) }"
+          @click="toggleTag(tag)"
+        >
+          {{ tag.label }}
+        </button>
+      </view>
     </view>
 
     <view class="daily-panel">
@@ -262,6 +354,7 @@
         </view>
       </view>
     </view>
+    </template>
   </view>
 </template>
 
@@ -271,6 +364,18 @@ import { computed, defineComponent, h, ref } from "vue";
 const AI_SECTION_TITLES = ["局势", "阻碍", "转机", "应对", "结果倾向"];
 const AI_SECTION_PATTERN = AI_SECTION_TITLES.join("|");
 const categories = ["事业", "感情", "财运", "合作", "出行", "其他"];
+const quickTags = [
+  { label: "事业", category: "事业" },
+  { label: "感情", category: "感情" },
+  { label: "财运", category: "财运" },
+  { label: "合作", category: "合作" },
+  { label: "出行", category: "出行" },
+  { label: "抉择" },
+  { label: "应期" },
+  { label: "人际" },
+  { label: "家宅" },
+  { label: "健康" }
+];
 const methodGuides = [
   { name: "今日签", ready: true, fit: "适合今日状态、轻量提醒、当天宜忌与行动校准。" },
   { name: "梅花易数", ready: true, fit: "适合一事一问、临时起意、看当前气机和走势。" },
@@ -311,7 +416,7 @@ const dailyQuestion = ref("");
 const dailyProfile = ref("");
 const dailyLocation = ref("");
 const dailyPersonalInfo = ref("");
-const dailyOracle = ref(loadDailyOracle());
+const dailyOracle = ref(null);
 const dailyDrawing = ref(false);
 const dailyError = ref("");
 const current = ref(null);
@@ -325,11 +430,134 @@ const followupInput = ref("");
 const followupLoading = ref(false);
 const chatError = ref("");
 const historyOpen = ref(false);
+const authMode = ref("login");
+const authPhone = ref("");
+const authPassword = ref("");
+const authError = ref("");
+const authLoading = ref(false);
+const authToken = ref(getStorage("auth-token") || "");
+const user = ref(null);
+const profiles = ref([]);
+const profileLoading = ref(false);
+const profileError = ref("");
+const newProfileName = ref("");
+const newProfileRelation = ref("");
+const newProfileNote = ref("");
+const selectedTags = ref(loadJsonStorage("wenshi-selected-tags", []));
+
+const currentProfile = computed(() => profiles.value.find((item) => item.id === user.value?.currentProfileId) || profiles.value[0] || null);
+const selectedTagLabels = computed(() => selectedTags.value.filter((label) => quickTags.some((tag) => tag.label === label)));
 
 const currentSession = computed(() => {
   if (!current.value) return { reading: "", messages: [] };
   return getAiSession(current.value.id);
 });
+
+dailyOracle.value = loadDailyOracle();
+
+if (authToken.value) {
+  loadMe();
+}
+
+async function submitAuth() {
+  authError.value = "";
+  authLoading.value = true;
+  try {
+    const payload = await requestJson(`/api/auth/${authMode.value === "login" ? "login" : "register"}`, {
+      phone: authPhone.value,
+      password: authPassword.value
+    }, { skipAuth: true });
+    applyAuthPayload(payload);
+  } catch (error) {
+    authError.value = error.message;
+  } finally {
+    authLoading.value = false;
+  }
+}
+
+function toggleAuthMode() {
+  authError.value = "";
+  authMode.value = authMode.value === "login" ? "register" : "login";
+}
+
+async function loadMe() {
+  try {
+    const payload = await requestGet("/api/auth/me");
+    applyAuthPayload(payload);
+  } catch {
+    logout();
+  }
+}
+
+function applyAuthPayload(payload) {
+  authToken.value = payload.token || authToken.value;
+  if (authToken.value) setStorage("auth-token", authToken.value);
+  user.value = payload.user;
+  profiles.value = payload.profiles || [];
+  syncProfileContext();
+}
+
+function logout() {
+  authToken.value = "";
+  user.value = null;
+  profiles.value = [];
+  removeStorage("auth-token");
+  dailyOracle.value = null;
+}
+
+async function switchProfile(profileId) {
+  profileError.value = "";
+  try {
+    const payload = await requestJson("/api/profiles/current", { profileId });
+    applyAuthPayload(payload);
+  } catch (error) {
+    profileError.value = error.message;
+  }
+}
+
+async function createProfile() {
+  profileError.value = "";
+  profileLoading.value = true;
+  try {
+    const payload = await requestJson("/api/profiles", {
+      name: newProfileName.value,
+      relation: newProfileRelation.value,
+      note: newProfileNote.value
+    });
+    newProfileName.value = "";
+    newProfileRelation.value = "";
+    newProfileNote.value = "";
+    applyAuthPayload(payload);
+  } catch (error) {
+    profileError.value = error.message;
+  } finally {
+    profileLoading.value = false;
+  }
+}
+
+function syncProfileContext() {
+  const profile = currentProfile.value;
+  if (profile) {
+    dailyProfile.value = profile.name;
+    dailyPersonalInfo.value = profile.note || dailyPersonalInfo.value;
+  }
+  dailyOracle.value = loadDailyOracle();
+}
+
+function toggleTag(tag) {
+  if (selectedTags.value.includes(tag.label)) {
+    selectedTags.value = selectedTags.value.filter((item) => item !== tag.label);
+  } else {
+    selectedTags.value = [...selectedTags.value, tag.label];
+  }
+  if (tag.category) category.value = tag.category;
+  setJsonStorage("wenshi-selected-tags", selectedTags.value);
+}
+
+function clearTags() {
+  selectedTags.value = [];
+  removeStorage("wenshi-selected-tags");
+}
 
 async function cast() {
   errorText.value = "";
@@ -339,6 +567,7 @@ async function cast() {
       question: question.value.trim(),
       category: category.value,
       method: method.value,
+      tags: selectedTagLabels.value,
       numbers: {
         a: numA.value,
         b: numB.value,
@@ -366,7 +595,8 @@ async function drawDailyOracle() {
       question: dailyQuestion.value.trim(),
       profile: dailyProfile.value.trim(),
       location: dailyLocation.value.trim(),
-      personalInfo: dailyPersonalInfo.value.trim()
+      personalInfo: dailyPersonalInfo.value.trim(),
+      tags: selectedTagLabels.value
     });
     dailyOracle.value = result;
     setJsonStorage(getDailyOracleStorageKey(), result);
@@ -440,16 +670,18 @@ async function requestFollowup() {
   }
 }
 
-function requestJson(url, payload) {
+function requestJson(url, payload, options = {}) {
   return new Promise((resolve, reject) => {
+    const headers = {
+      "Content-Type": "application/json",
+      ...getAuthHeader(options)
+    };
     if (typeof uni !== "undefined" && uni.request) {
       uni.request({
         url,
         method: "POST",
         data: payload,
-        header: {
-          "Content-Type": "application/json"
-        },
+        header: headers,
         success: (response) => {
           if (response.statusCode >= 200 && response.statusCode < 300) {
             resolve(response.data);
@@ -464,9 +696,7 @@ function requestJson(url, payload) {
 
     fetch(url, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers,
       body: JSON.stringify(payload)
     })
       .then(async (response) => {
@@ -479,13 +709,51 @@ function requestJson(url, payload) {
   });
 }
 
+function requestGet(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const headers = getAuthHeader(options);
+    if (typeof uni !== "undefined" && uni.request) {
+      uni.request({
+        url,
+        method: "GET",
+        header: headers,
+        success: (response) => {
+          if (response.statusCode >= 200 && response.statusCode < 300) {
+            resolve(response.data);
+          } else {
+            reject(new Error(response.data?.error || `接口返回 ${response.statusCode}`));
+          }
+        },
+        fail: (error) => reject(new Error(error.errMsg || "网络请求失败"))
+      });
+      return;
+    }
+
+    fetch(url, { headers })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || `接口返回 ${response.status}`);
+        return data;
+      })
+      .then(resolve)
+      .catch(reject);
+  });
+}
+
+function getAuthHeader(options) {
+  if (options.skipAuth || !authToken.value) return {};
+  return {
+    Authorization: `Bearer ${authToken.value}`
+  };
+}
+
 function loadDailyOracle() {
   const value = loadJsonStorage(getDailyOracleStorageKey(), null);
   return value?.dateKey === getTodayKey() ? value : null;
 }
 
 function getDailyOracleStorageKey() {
-  return `daily-oracle:${getTodayKey()}`;
+  return `daily-oracle:${user.value?.id || "guest"}:${currentProfile.value?.id || "default"}:${getTodayKey()}`;
 }
 
 function getTodayKey() {
@@ -502,6 +770,7 @@ function buildAiPrompt(result) {
   return [
     `问题：${result.question}`,
     `事项：${result.category}`,
+    result.tags?.length ? `标签：${result.tags.join("、")}` : "",
     `起卦：${result.methodLabel}，${result.seedLabel}`,
     `本卦：${result.original.name}（${result.original.fullName}）`,
     `互卦：${result.mutual.name}（${result.mutual.fullName}）`,
@@ -511,7 +780,7 @@ function buildAiPrompt(result) {
     `用卦：${result.use.name}${result.use.image}，五行${result.use.element}`,
     `体用关系：${result.relation.type}，${result.relation.text}`,
     "请按以下结构输出，标题必须用中文冒号，不要使用 Markdown，不要输出星号或粗体符号：局势：、阻碍：、转机：、应对：、结果倾向：。语气直接一点，别太玄。"
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 
 function buildFollowupMessages(result, session) {
@@ -539,6 +808,7 @@ function buildFollowupContext(result, session) {
     "当前卦上下文：",
     `原问题：${result.question}`,
     `事项：${result.category}`,
+    result.tags?.length ? `标签：${result.tags.join("、")}` : "",
     `起卦：${result.methodLabel}，${result.seedLabel}`,
     `本卦：${result.original.name}（${result.original.fullName}）`,
     `互卦：${result.mutual.name}（${result.mutual.fullName}）`,
@@ -549,7 +819,7 @@ function buildFollowupContext(result, session) {
     `体用关系：${result.relation.type}，${result.relation.text}`,
     session.reading ? `此前 AI 深断：${session.reading}` : "此前 AI 深断：暂无，按卦象和规则断语回答。",
     "回答要求：直接回答用户追问，不要重复完整排盘。"
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 
 function parseAiSections(text) {
@@ -766,40 +1036,36 @@ button {
 
 .icon-button {
   position: relative;
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   flex: 0 0 46px;
+  justify-content: center;
+  gap: 5px;
   width: 46px;
   height: 46px;
-  place-items: center;
   border: 1px solid rgba(218, 190, 126, 0.18);
   border-radius: 8px;
+  padding: 0;
   background: rgba(242, 234, 217, 0.06);
 }
 
-.icon-button text,
-.icon-button::before,
 .icon-button::after {
+  border: 0;
+}
+
+.menu-line {
   display: block;
   width: 19px;
   height: 2px;
-  content: "";
+  border-radius: 999px;
   background: #d6ad61;
 }
 
-.icon-button::before,
-.icon-button::after {
-  position: absolute;
-}
-
-.icon-button::before {
-  transform: translateY(-7px);
-}
-
-.icon-button::after {
-  transform: translateY(7px);
-}
-
 .question-panel,
+.auth-panel,
+.profile-panel,
+.tag-panel,
 .daily-panel,
 .method-guide,
 .result-panel {
@@ -813,6 +1079,9 @@ button {
 }
 
 .question-panel,
+.auth-panel,
+.profile-panel,
+.tag-panel,
 .daily-panel,
 .method-guide {
   display: grid;
@@ -821,6 +1090,9 @@ button {
 }
 
 .daily-panel,
+.auth-panel,
+.profile-panel,
+.tag-panel,
 .method-guide {
   margin-bottom: 14px;
 }
@@ -835,6 +1107,12 @@ button {
 }
 
 .panel-head.compact-head {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.panel-head.slim-head {
+  align-items: center;
   padding-bottom: 0;
   border-bottom: 0;
 }
@@ -928,6 +1206,33 @@ button {
   border-radius: 8px;
   color: #a9a090;
   background: rgba(242, 234, 217, 0.045);
+}
+
+.plain-button.small {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-chip {
+  min-height: 36px;
+  border: 1px solid rgba(218, 190, 126, 0.18);
+  border-radius: 999px;
+  padding: 0 12px;
+  color: #a9a090;
+  background: rgba(242, 234, 217, 0.045);
+}
+
+.tag-chip.is-active {
+  border-color: rgba(122, 169, 154, 0.36);
+  color: #f2ead9;
+  background: rgba(122, 169, 154, 0.16);
 }
 
 .chip.is-active,
@@ -1493,6 +1798,55 @@ button {
   padding: 8px 10px;
 }
 
+.plain-wide-button {
+  min-height: 40px;
+  border: 1px solid rgba(218, 190, 126, 0.18);
+  border-radius: 8px;
+  color: #a9a090;
+  background: rgba(242, 234, 217, 0.045);
+}
+
+.current-profile {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(122, 169, 154, 0.22);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(122, 169, 154, 0.08);
+}
+
+.profile-name {
+  color: #f2ead9;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.profile-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profile-chip {
+  min-height: 36px;
+  border: 1px solid rgba(218, 190, 126, 0.18);
+  border-radius: 999px;
+  padding: 0 12px;
+  color: #a9a090;
+  background: rgba(242, 234, 217, 0.045);
+}
+
+.profile-chip.is-active {
+  border-color: rgba(122, 169, 154, 0.34);
+  color: #f2ead9;
+  background: rgba(122, 169, 154, 0.14);
+}
+
+.add-profile {
+  display: grid;
+  gap: 10px;
+}
+
 .history-item {
   display: grid;
   gap: 8px;
@@ -1504,6 +1858,107 @@ button {
 .history-question {
   color: #f2ead9;
   font-size: 14px;
+}
+
+@media (min-width: 860px) {
+  .page-shell {
+    display: grid;
+    grid-template-columns: minmax(320px, 410px) minmax(0, 1fr);
+    align-items: start;
+    gap: 16px;
+    width: min(100%, 1160px);
+    padding: 24px;
+  }
+
+  .topbar {
+    grid-column: 1 / -1;
+    padding-bottom: 8px;
+  }
+
+  .auth-panel {
+    grid-column: 1 / -1;
+    width: min(100%, 460px);
+    justify-self: center;
+  }
+
+  .profile-panel,
+  .tag-panel,
+  .daily-panel,
+  .method-guide {
+    grid-column: 1;
+    margin-bottom: 0;
+  }
+
+  .profile-panel {
+    grid-row: 2;
+  }
+
+  .tag-panel {
+    grid-row: 3;
+  }
+
+  .daily-panel {
+    grid-row: 4;
+  }
+
+  .method-guide {
+    grid-row: 5;
+  }
+
+  .question-panel,
+  .result-panel {
+    grid-column: 2;
+    margin-bottom: 0;
+  }
+
+  .question-panel {
+    grid-row: 2;
+  }
+
+  .result-panel {
+    grid-row: 3 / span 3;
+    margin-top: 0;
+  }
+
+  .question-panel,
+  .auth-panel,
+  .profile-panel,
+  .tag-panel,
+  .daily-panel,
+  .method-guide {
+    padding: 20px;
+  }
+
+  .title {
+    font-size: 40px;
+  }
+
+  .question-input {
+    min-height: 138px;
+  }
+
+  .daily-input {
+    min-height: 96px;
+  }
+
+  .method-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .drawer-panel {
+    width: min(460px, 44vw);
+  }
+}
+
+@media (min-width: 1180px) {
+  .page-shell {
+    grid-template-columns: 420px minmax(0, 1fr);
+    gap: 18px;
+  }
+
+  .method-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 360px) {

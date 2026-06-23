@@ -1,6 +1,7 @@
 const http = require("node:http");
 const { castDivination } = require("./divination");
 const { castDailyOracle } = require("./dailyOracle");
+const userStore = require("./userStore");
 
 const PORT = Number(process.env.PORT || 8787);
 const MAX_BODY_SIZE = 1024 * 1024;
@@ -110,9 +111,9 @@ async function handleCastDivination(request, response) {
     return;
   }
 
-  const output = castDivination(payload);
+  const output = userStore.castDivination(getBearerToken(request), payload, castDivination);
   if (output.error) {
-    sendJson(response, 400, { error: output.error });
+    sendJson(response, output.error.includes("登录") ? 401 : 400, { error: output.error });
     return;
   }
 
@@ -128,26 +129,84 @@ async function handleCastDailyOracle(request, response) {
     return;
   }
 
-  sendJson(response, 200, castDailyOracle(payload));
+  const output = userStore.castDailyOracle(getBearerToken(request), payload, castDailyOracle);
+  sendJson(response, output.error ? 401 : 200, output);
+}
+
+async function readJsonPayload(request, response) {
+  try {
+    return JSON.parse(await readBody(request));
+  } catch (error) {
+    sendJson(response, 400, { error: error.message || "请求体不是有效 JSON。" });
+    return null;
+  }
+}
+
+function getBearerToken(request) {
+  const authorization = request.headers.authorization || "";
+  return authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+}
+
+async function handleAuth(request, response, action) {
+  const payload = await readJsonPayload(request, response);
+  if (!payload) return;
+  const output = action(payload);
+  sendJson(response, output.error ? 400 : 200, output);
+}
+
+async function handleAuthedAction(request, response, action) {
+  const token = getBearerToken(request);
+  const payload = request.method === "POST" ? await readJsonPayload(request, response) : {};
+  if (request.method === "POST" && !payload) return;
+  const output = action(token, payload);
+  sendJson(response, output.error ? 401 : 200, output);
 }
 
 const server = http.createServer(async (request, response) => {
-  if (request.method === "GET" && request.url === "/api/health") {
+  const { pathname } = new URL(request.url, "http://localhost");
+
+  if (request.method === "GET" && pathname === "/api/health") {
     sendJson(response, 200, { ok: true });
     return;
   }
 
-  if (request.method === "POST" && request.url === "/api/chat/completions") {
+  if (request.method === "POST" && pathname === "/api/auth/register") {
+    await handleAuth(request, response, userStore.register);
+    return;
+  }
+
+  if (request.method === "POST" && pathname === "/api/auth/login") {
+    await handleAuth(request, response, userStore.login);
+    return;
+  }
+
+  if (request.method === "GET" && pathname === "/api/auth/me") {
+    const output = userStore.getMe(getBearerToken(request));
+    sendJson(response, output.error ? 401 : 200, output);
+    return;
+  }
+
+  if (request.method === "POST" && pathname === "/api/profiles") {
+    await handleAuthedAction(request, response, userStore.createProfile);
+    return;
+  }
+
+  if (request.method === "POST" && pathname === "/api/profiles/current") {
+    await handleAuthedAction(request, response, (token, payload) => userStore.setCurrentProfile(token, payload.profileId));
+    return;
+  }
+
+  if (request.method === "POST" && pathname === "/api/chat/completions") {
     await handleChatCompletion(request, response);
     return;
   }
 
-  if (request.method === "POST" && request.url === "/api/divination/cast") {
+  if (request.method === "POST" && pathname === "/api/divination/cast") {
     await handleCastDivination(request, response);
     return;
   }
 
-  if (request.method === "POST" && request.url === "/api/daily-oracle/cast") {
+  if (request.method === "POST" && pathname === "/api/daily-oracle/cast") {
     await handleCastDailyOracle(request, response);
     return;
   }

@@ -17,4 +17,7 @@ services:
       - .env
     environment:
       - TZ=Asia/Shanghai
+      - DATA_FILE=/data/app-data.json
+    volumes:
+      - ./data:/data
     restart: unless-stopped

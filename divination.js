@@ -60,6 +60,7 @@ function castDivination(payload) {
   const question = String(payload.question || "").trim();
   const category = CATEGORY_TEXT[payload.category] ? payload.category : "其他";
   const method = payload.method === "number" ? "number" : "time";
+  const tags = normalizeTags(payload.tags);
   const error = validateCastInput({ ...payload, question, method });
 
   if (error) {
@@ -67,8 +68,8 @@ function castDivination(payload) {
   }
 
   const result = method === "number"
-    ? castByNumbers(question, category, payload.numbers || {})
-    : castByTime(question, category);
+    ? castByNumbers(question, category, payload.numbers || {}, tags)
+    : castByTime(question, category, tags);
 
   return { result };
 }
@@ -86,6 +87,11 @@ function validateCastInput(input) {
   }
 
   return "";
+}
+
+function normalizeTags(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map((item) => String(item || "").trim()).filter(Boolean))].slice(0, 8);
 }
 
 function normalizeModulo(value, base) {
@@ -310,12 +316,13 @@ function relationOf(bodyElement, useElement) {
   };
 }
 
-function castByTime(question, category) {
+function castByTime(question, category, tags) {
   const now = new Date();
   const seed = getTraditionalTimeSeed(now);
   return makeDivination({
     question,
     category,
+    tags,
     methodLabel: "时间起卦",
     seedLabel: seed.label,
     upper: TRIGRAMS[normalizeModulo(seed.seedA, 8)],
@@ -325,7 +332,7 @@ function castByTime(question, category) {
   });
 }
 
-function castByNumbers(question, category, numbers) {
+function castByNumbers(question, category, numbers, tags) {
   const a = Number(numbers.a);
   const b = Number(numbers.b);
   const c = Number(numbers.c || a + b);
@@ -333,6 +340,7 @@ function castByNumbers(question, category, numbers) {
   return makeDivination({
     question,
     category,
+    tags,
     methodLabel: "数字起卦",
     seedLabel: `上数 ${a}，下数 ${b}，动数 ${c}`,
     upper: TRIGRAMS[normalizeModulo(a, 8)],
@@ -356,6 +364,7 @@ function makeDivination(input) {
     id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
     question: input.question,
     category: input.category,
+    tags: input.tags || [],
     methodLabel: input.methodLabel,
     seedLabel: input.seedLabel,
     createdAt: input.createdAt.toISOString(),
@@ -367,7 +376,7 @@ function makeDivination(input) {
     use,
     relation,
     verdict,
-    reading: buildReading({ relation, categoryText, movingLine: input.movingLine, original, mutual, changed, body, use })
+    reading: buildReading({ relation, categoryText, tags: input.tags || [], movingLine: input.movingLine, original, mutual, changed, body, use })
   };
 }
 
@@ -393,8 +402,9 @@ function buildReading(data) {
     `本卦为${data.original.name}，上${data.original.upper.name}下${data.original.lower.name}，主象是${data.original.upper.nature}与${data.original.lower.nature}相叠。`,
     `体卦为${data.body.name}${data.body.image}，属${data.body.element}；用卦为${data.use.name}${data.use.image}，属${data.use.element}。${data.relation.type}，${data.relation.text}`,
     `互卦为${data.mutual.name}，看中间过程；变卦为${data.changed.name}，看后势走向。${movingText[data.movingLine]}`,
+    data.tags.length ? `本次标签为：${data.tags.join("、")}，断事时优先按这些方向收束判断。` : "",
     `${data.categoryText.focus}此卦建议：${data.categoryText.advice}`
-  ];
+  ].filter(Boolean);
 }
 
 function formatDate(date) {

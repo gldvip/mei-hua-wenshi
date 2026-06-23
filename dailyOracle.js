@@ -223,6 +223,7 @@ function castDailyOracle(payload) {
   const profile = normalizeOptional(payload.profile);
   const location = normalizeOptional(payload.location);
   const personalInfo = normalizeOptional(payload.personalInfo);
+  const tags = normalizeTags(payload.tags);
   const randomSalt = `${Date.now()}-${Math.random()}`;
   const basis = [
     formatDate(now),
@@ -230,6 +231,7 @@ function castDailyOracle(payload) {
     profile,
     location,
     personalInfo,
+    tags.join(","),
     randomSalt
   ].join("|");
   const index = Math.abs(hashText(basis)) % DAILY_SIGNS.length;
@@ -244,10 +246,11 @@ function castDailyOracle(payload) {
     profile,
     location,
     personalInfo,
+    tags,
     signNumber: index + 1,
     totalSigns: DAILY_SIGNS.length,
     sign,
-    reading: buildReading(sign, { question, profile, location, personalInfo, now })
+    reading: buildReading(sign, { question, profile, location, personalInfo, tags, now })
   };
 }
 
@@ -255,9 +258,10 @@ function buildReading(sign, context) {
   const subject = context.profile ? `以「${context.profile}」为当前问卜对象，` : "";
   const place = context.location ? `地点取「${context.location}」之气，` : "";
   const info = context.personalInfo ? `参考个人信息「${context.personalInfo}」，` : "";
+  const tags = context.tags?.length ? `标签为「${context.tags.join("、")}」，` : "";
 
   return [
-    `${subject}${place}${info}今日得「${sign.name}」签，签势为${sign.fortune}。`,
+    `${subject}${place}${info}${tags}今日得「${sign.name}」签，签势为${sign.fortune}。`,
     `此签关键词为：${sign.keywords.join("、")}。${sign.advice}`,
     `所问为「${context.question}」。今日宜：${sign.suitable} 忌：${sign.avoid}`,
     "此签只看当日气机，不替代一事一卦；若要问具体成败、对方态度或后续走势，建议再用梅花易数或六爻细断。"
@@ -266,6 +270,11 @@ function buildReading(sign, context) {
 
 function normalizeOptional(value) {
   return String(value || "").trim().slice(0, 80);
+}
+
+function normalizeTags(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.map((item) => String(item || "").trim()).filter(Boolean))].slice(0, 8);
 }
 
 function hashText(text) {

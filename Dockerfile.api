@@ -4,6 +4,7 @@ WORKDIR /app
 COPY server.js /app/server.js
 COPY divination.js /app/divination.js
 COPY dailyOracle.js /app/dailyOracle.js
+COPY userStore.js /app/userStore.js
 
 ENV NODE_ENV=production
 ENV PORT=8787
