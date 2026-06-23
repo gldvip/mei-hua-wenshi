@@ -258,7 +258,7 @@
             <view v-if="dailyAiNote" class="ai-note">{{ dailyAiNote }}</view>
             <view v-else class="ai-report">
               <view v-for="(section, index) in dailyAiSections" :key="section.title + index" class="ai-section">
-                <text class="ai-title">{{ section.title }}</text>
+                <text v-if="section.title" class="ai-title">{{ section.title }}</text>
                 <text v-for="paragraph in section.paragraphs" :key="paragraph" class="ai-paragraph">{{ paragraph }}</text>
               </view>
             </view>
@@ -400,7 +400,7 @@
               <view v-if="advancedAiNote" class="ai-note">{{ advancedAiNote }}</view>
               <view v-else class="ai-report">
                 <view v-for="(section, index) in advancedAiSections" :key="section.title + index" class="ai-section">
-                  <text class="ai-title">{{ section.title }}</text>
+                  <text v-if="section.title" class="ai-title">{{ section.title }}</text>
                   <text v-for="paragraph in section.paragraphs" :key="paragraph" class="ai-paragraph">{{ paragraph }}</text>
                 </view>
               </view>
@@ -519,7 +519,7 @@
             <view v-if="aiNote" class="ai-note">{{ aiNote }}</view>
             <view v-else class="ai-report">
               <view v-for="(section, index) in aiSections" :key="section.title + index" class="ai-section">
-                <text class="ai-title">{{ section.title }}</text>
+                <text v-if="section.title" class="ai-title">{{ section.title }}</text>
                 <text v-for="paragraph in section.paragraphs" :key="paragraph" class="ai-paragraph">{{ paragraph }}</text>
               </view>
             </view>
@@ -580,8 +580,6 @@
 <script setup>
 import { computed, defineComponent, h, ref } from "vue";
 
-const AI_SECTION_TITLES = ["局势", "阻碍", "转机", "应对", "结果倾向"];
-const AI_SECTION_PATTERN = AI_SECTION_TITLES.join("|");
 const API_BASE_URL = "https://wenshi.cccode.com.cn";
 const categories = ["事业", "感情", "财运", "合作", "出行", "其他"];
 const sectionTabs = [
@@ -1157,7 +1155,7 @@ async function requestDailyAiReading() {
     note: dailyAiNote,
     sections: dailyAiSections,
     system:
-      "你是传统问卜和签文解读助手。根据今日签、问题、定位和个人信息做白话深断。不要使用 Markdown，不要输出星号、井号、粗体符号。不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。"
+      "你是传统问卜和签文解读助手。根据今日签、问题、定位和个人信息做自然的白话解读，像一位有经验的老师在认真回应。不要套固定栏目，不要为了分段而分段，不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。"
   });
 }
 
@@ -1170,7 +1168,7 @@ async function requestAdvancedAiReading() {
     note: advancedAiNote,
     sections: advancedAiSections,
     system:
-      "你是传统问卜解读助手。根据用户提供的起占方式、结果、事实和问题做白话深断。不要重新起卦，不要使用 Markdown，不要输出星号、井号、粗体符号。不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。"
+      "你是传统问卜解读助手。根据用户提供的起占方式、结果、事实和问题做自然的白话解读。不要重新起卦，不要套固定栏目，不要为了分段而分段，不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。"
   });
 }
 
@@ -1212,7 +1210,7 @@ async function requestAiReading() {
         {
           role: "system",
           content:
-            "你是传统梅花易数问事助手。只根据用户提供的卦象、体用、生克、动爻和问题做白话分析。不要使用 Markdown，不要输出星号、井号、粗体符号。不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。"
+            "你是传统梅花易数问事助手。只根据用户提供的卦象、体用、生克、动爻和问题做自然的白话分析，像认真看完卦后直接和用户说话。不要套固定栏目，不要为了分段而分段，不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。"
         },
         {
           role: "user",
@@ -1380,7 +1378,7 @@ function buildAiPrompt(result) {
     `体卦：${result.body.name}${result.body.image}，五行${result.body.element}`,
     `用卦：${result.use.name}${result.use.image}，五行${result.use.element}`,
     `体用关系：${result.relation.type}，${result.relation.text}`,
-    "请按以下结构输出，标题必须用中文冒号，不要使用 Markdown，不要输出星号或粗体符号：局势：、阻碍：、转机：、应对：、结果倾向：。语气直接一点，别太玄。"
+    "请自然回复，不要套固定标题或固定模板。可以像正常对话一样分成几段，把判断、原因和建议自然讲清楚。"
   ].filter(Boolean).join("\n");
 }
 
@@ -1397,7 +1395,7 @@ function buildDailyAiPrompt(result) {
     result.location ? `定位：${result.location}` : locationText.value ? `定位：${locationText.value}` : "",
     result.personalInfo ? `个人信息：${result.personalInfo}` : personalInfoSummary.value ? `个人信息：${personalInfoSummary.value}` : "",
     result.reading?.length ? `当前解读：${result.reading.join("；")}` : "",
-    "请按以下结构输出，标题必须用中文冒号，不要使用 Markdown，不要输出星号或粗体符号：局势：、阻碍：、转机：、应对：、结果倾向：。语气直接一点，别太玄。"
+    "请自然回复，不要套固定标题或固定模板。可以像正常对话一样分成几段，把当天提醒和可做的事自然讲清楚。"
   ].filter(Boolean).join("\n");
 }
 
@@ -1414,7 +1412,7 @@ function buildAdvancedAiPrompt(result) {
     result.facts?.length ? `事实：${result.facts.map((fact) => `${fact[0]}=${fact[1]}`).join("；")}` : "",
     buildAdvancedExtraSummary(result),
     result.reading?.length ? `基础断语：${result.reading.join("；")}` : "",
-    "请按以下结构输出，标题必须用中文冒号，不要使用 Markdown，不要输出星号或粗体符号：局势：、阻碍：、转机：、应对：、结果倾向：。语气直接一点，别太玄。"
+    "请自然回复，不要套固定标题或固定模板。可以像正常对话一样分成几段，把判断、原因和建议自然讲清楚。"
   ].filter(Boolean).join("\n");
 }
 
@@ -1444,7 +1442,7 @@ function buildFollowupMessages(result, session) {
     {
       role: "system",
       content:
-        "你是传统梅花易数追问助手。当前卦已经起好，不要重新起卦。围绕原卦解释用户不懂的地方，给出清晰、克制、可执行的判断。若用户明显问另一个独立新事件，提醒一事一卦，建议重新起卦。不要使用 Markdown，不要输出星号、井号、粗体符号。不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。"
+        "你是传统梅花易数追问助手。当前卦已经起好，不要重新起卦。围绕原卦自然回答用户不懂的地方，像继续聊天一样回应。若用户明显问另一个独立新事件，提醒一事一卦，建议重新起卦。不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。"
     },
     {
       role: "user",
@@ -1469,29 +1467,13 @@ function buildFollowupContext(result, session) {
     `用卦：${result.use.name}${result.use.image}，五行${result.use.element}`,
     `体用关系：${result.relation.type}，${result.relation.text}`,
     session.reading ? `此前 AI 深断：${session.reading}` : "此前 AI 深断：暂无，按卦象和规则断语回答。",
-    "回答要求：直接回答用户追问，不要重复完整排盘。"
+    "回答要求：直接回答用户追问，不要重复完整排盘，不要套固定栏目。"
   ].filter(Boolean).join("\n");
 }
 
 function parseAiSections(text) {
-  const cleaned = normalizeAiSectionText(text);
-  const pattern = new RegExp(`(?:^|\\n)[ \\t]*(?:\\d+[.、][ \\t]*)?(${AI_SECTION_PATTERN})[ \\t]*[:：]?[ \\t]*`, "g");
-  const matches = [...cleaned.matchAll(pattern)];
-
-  if (matches.length) {
-    return matches
-      .map((match, index) => {
-        const start = match.index + match[0].length;
-        const end = matches[index + 1]?.index ?? cleaned.length;
-        return {
-          title: match[1],
-          paragraphs: splitAiParagraphs(cleaned.slice(start, end))
-        };
-      })
-      .filter((section) => section.paragraphs.length);
-  }
-
-  return [{ title: "AI 深断", paragraphs: splitAiParagraphs(cleaned) }].filter((section) => section.paragraphs.length);
+  const paragraphs = splitAiParagraphs(text);
+  return paragraphs.length ? [{ title: "", paragraphs }] : [];
 }
 
 function splitAiParagraphs(text) {
@@ -1501,20 +1483,9 @@ function splitAiParagraphs(text) {
     .filter(Boolean);
 }
 
-function normalizeAiSectionText(value) {
-  let text = cleanAiText(value);
-  const titleRegex = new RegExp(`(?:^|\\n)[ \\t]*(?:\\d+[.、][ \\t]*)?(${AI_SECTION_PATTERN})[ \\t]*[:：]?[ \\t]*`, "g");
-  text = text.replace(titleRegex, "\n$1：");
-  return text.replace(/\n{3,}/g, "\n\n").trim();
-}
-
 function cleanAiText(value) {
   let text = String(value || "").replace(/\r/g, "").trim();
-  const titleRegex = new RegExp(`\\*+\\s*(${AI_SECTION_PATTERN})\\s*\\*+\\s*[:：]?`, "g");
-  const trailingTitleRegex = new RegExp(`(${AI_SECTION_PATTERN})\\s*\\*+\\s*[:：]?`, "g");
   text = text
-    .replace(titleRegex, "\n$1：")
-    .replace(trailingTitleRegex, "\n$1：")
     .replace(/\*\*([^*\n]+)\*\*/g, "$1")
     .replace(/\*([^*\n]+)\*/g, "$1")
     .replace(/^\s*#{1,6}\s*/gm, "")
