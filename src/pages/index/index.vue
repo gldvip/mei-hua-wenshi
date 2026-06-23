@@ -937,6 +937,7 @@ async function cast() {
     activeSection.value = "mei";
     resetAiState();
     saveResult(result);
+    requestAiReading();
   } catch (error) {
     errorText.value = `起卦失败：${error.message}`;
   } finally {
@@ -968,6 +969,7 @@ async function castAdvanced() {
     activeSection.value = "methods";
     resetAdvancedAiState();
     saveResult(result);
+    requestAdvancedAiReading();
   } catch (error) {
     advancedError.value = `推演失败：${error.message}`;
   } finally {
@@ -992,6 +994,7 @@ async function drawDailyOracle() {
     dailyOracle.value = result;
     resetDailyAiState();
     setJsonStorage(getDailyOracleStorageKey(), result);
+    requestDailyAiReading();
   } catch (error) {
     dailyError.value = `摇签失败：${error.message}`;
   } finally {
