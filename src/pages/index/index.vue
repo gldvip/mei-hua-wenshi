@@ -76,13 +76,21 @@
         </view>
         <view class="field compact">
           <text class="label">出生日期</text>
-          <input v-model="personalBirthDate" class="number-input" type="date" />
+          <picker mode="date" :value="personalBirthDate" :end="todayKey" @change="onBirthDateChange">
+            <view class="number-input picker-input" :class="{ 'is-placeholder': !personalBirthDate }">
+              {{ personalBirthDate || "请选择出生日期" }}
+            </view>
+          </picker>
         </view>
       </view>
       <view class="daily-extra-grid">
         <view class="field compact">
           <text class="label">出生时间</text>
-          <input v-model="personalBirthTime" class="number-input" type="time" />
+          <picker mode="time" :value="personalBirthTime" @change="onBirthTimeChange">
+            <view class="number-input picker-input" :class="{ 'is-placeholder': !personalBirthTime }">
+              {{ personalBirthTime || "请选择出生时间" }}
+            </view>
+          </picker>
         </view>
         <view class="field compact">
           <text class="label">定位</text>
@@ -731,6 +739,7 @@ const hasRequiredPersonalInfo = computed(() => Boolean(personalBirthDate.value))
 const personalInfoSummary = computed(() => buildPersonalInfoSummary());
 const locationText = computed(() => formatLocation(autoLocation.value));
 const canCastAdvanced = computed(() => advancedMethod.value !== "personal" || hasRequiredPersonalInfo.value);
+const todayKey = computed(() => getTodayKey());
 
 const currentSession = computed(() => {
   if (!current.value) return { reading: "", messages: [] };
@@ -793,6 +802,14 @@ function syncPersonalInfo(info = {}) {
   personalBirthDate.value = info.birthDate || "";
   personalBirthTime.value = info.birthTime || "12:00";
   personalNote.value = info.note || "";
+}
+
+function onBirthDateChange(event) {
+  personalBirthDate.value = event.detail.value;
+}
+
+function onBirthTimeChange(event) {
+  personalBirthTime.value = event.detail.value;
 }
 
 function syncAccountContext() {
@@ -1809,6 +1826,15 @@ button {
 .number-input {
   height: 45px;
   padding: 0 12px;
+}
+
+.picker-input {
+  display: flex;
+  align-items: center;
+}
+
+.picker-input.is-placeholder {
+  color: #6f685c;
 }
 
 .chip-grid {
