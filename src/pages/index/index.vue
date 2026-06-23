@@ -250,7 +250,7 @@
           <text v-for="item in dailyOracle.reading" :key="item" class="reading-item">{{ item }}</text>
         </view>
         <view class="ai-box">
-          <button class="ai-action" :disabled="dailyAiLoading" @click="requestDailyAiReading">
+          <button v-if="!hasAiContent(dailyAiSections)" class="ai-action" :disabled="dailyAiLoading" @click="requestDailyAiReading">
             <text>{{ dailyAiLoading ? "正在深断" : "AI 深断" }}</text>
             <text class="arrow-line"></text>
           </button>
@@ -392,7 +392,7 @@
             <text v-for="item in advancedResult.reading" :key="item" class="reading-item">{{ item }}</text>
           </view>
           <view class="ai-box">
-            <button class="ai-action" :disabled="advancedAiLoading" @click="requestAdvancedAiReading">
+            <button v-if="!hasAiContent(advancedAiSections)" class="ai-action" :disabled="advancedAiLoading" @click="requestAdvancedAiReading">
               <text>{{ advancedAiLoading ? "正在深断" : "AI 深断" }}</text>
               <text class="arrow-line"></text>
             </button>
@@ -511,7 +511,7 @@
         </view>
 
         <view class="ai-box">
-          <button class="ai-action" :disabled="aiLoading" @click="requestAiReading">
+          <button v-if="!hasAiContent(aiSections)" class="ai-action" :disabled="aiLoading" @click="requestAiReading">
             <text>{{ aiLoading ? "正在深断" : "AI 深断" }}</text>
             <text class="arrow-line"></text>
           </button>
@@ -1188,7 +1188,7 @@ async function requestContextAiReading({ prompt, loading, visible, note, section
     });
     const content = cleanAiText(data.choices?.[0]?.message?.content?.trim() || "AI 没有返回可读内容。");
     note.value = "";
-    sections.value = parseAiSections(content);
+    await revealAiText(content, sections);
   } catch (error) {
     note.value = `AI 请求失败：${error.message}`;
   } finally {
@@ -1221,7 +1221,7 @@ async function requestAiReading() {
     const content = cleanAiText(data.choices?.[0]?.message?.content?.trim() || "AI 没有返回可读内容。");
     setAiReading(current.value.id, content);
     aiNote.value = "";
-    aiSections.value = parseAiSections(content);
+    await revealAiText(content, aiSections);
   } catch (error) {
     aiNote.value = `AI 请求失败：${error.message}`;
   } finally {
@@ -1474,6 +1474,28 @@ function buildFollowupContext(result, session) {
 function parseAiSections(text) {
   const paragraphs = splitAiParagraphs(text);
   return paragraphs.length ? [{ title: "", paragraphs }] : [];
+}
+
+function hasAiContent(sections) {
+  return Array.isArray(sections) && sections.some((section) => section.paragraphs?.some(Boolean));
+}
+
+async function revealAiText(content, sections) {
+  const normalized = cleanAiText(content);
+  if (!normalized) {
+    sections.value = [];
+    return;
+  }
+
+  sections.value = [];
+  const chunkSize = normalized.length > 700 ? 4 : normalized.length > 360 ? 3 : 2;
+  const delay = normalized.length > 700 ? 10 : 14;
+
+  for (let index = chunkSize; index < normalized.length; index += chunkSize) {
+    sections.value = parseAiSections(normalized.slice(0, index));
+    await wait(delay);
+  }
+  sections.value = parseAiSections(normalized);
 }
 
 function splitAiParagraphs(text) {
@@ -2939,23 +2961,30 @@ button:active {
 
 @media (max-width: 859px) {
   .page-shell {
-    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    padding-bottom: calc(84px + env(safe-area-inset-bottom));
   }
 
   .mobile-bottom-nav {
     position: fixed;
-    left: max(12px, env(safe-area-inset-left));
-    right: max(12px, env(safe-area-inset-right));
-    bottom: max(12px, env(safe-area-inset-bottom));
+    left: 0;
+    right: 0;
+    bottom: 0;
     z-index: 30;
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 6px;
-    width: min(calc(100vw - 24px), 430px);
+    width: 100%;
     margin: 0 auto;
     border: 1px solid rgba(226, 191, 112, 0.22);
-    border-radius: 8px;
-    padding: 7px;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 8px 8px 0 0;
+    padding:
+      7px
+      max(12px, env(safe-area-inset-right))
+      calc(7px + env(safe-area-inset-bottom))
+      max(12px, env(safe-area-inset-left));
     background:
       linear-gradient(180deg, rgba(255, 248, 228, 0.08), rgba(255, 248, 228, 0.02)),
       rgba(12, 16, 15, 0.94);
