@@ -803,6 +803,8 @@ import { computed, defineComponent, h, ref } from "vue";
 
 const API_BASE_URL = "https://wenshi.cccode.com.cn";
 const PUSH_WORKER_URL = "/push-worker.js?v=20260624";
+const DIRECT_READING_RULES =
+  "回答风格要直接。第一句话必须先给明确判断，例如“建议推进”“先别动”“偏吉但要慢”“不建议现在做”，不要以“可能、也许、看情况”开头。后面再讲原因和动作。少用模棱两可词；如果卦象确实矛盾，也要说明主倾向和次要风险。必须给出一到三个具体行动建议。可以提醒占卜不是绝对，但不要反复免责声明。";
 const categories = ["事业", "感情", "财运", "合作", "出行", "其他"];
 const sectionTabs = [
   { key: "daily", label: "今日" },
@@ -1766,7 +1768,7 @@ async function requestDailyAiReading() {
     note: dailyAiNote,
     sections: dailyAiSections,
     system:
-      "你是传统问卜和签文解读助手。根据今日签、问题、定位和个人信息做自然的白话解读，像一位有经验的老师在认真回应。不要套固定栏目，不要为了分段而分段，不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。"
+      `你是传统问卜和签文解读助手。根据今日签、问题、定位和个人信息做自然的白话解读，像一位有经验的老师在认真回应。不要套固定栏目，不要为了分段而分段，不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。${DIRECT_READING_RULES}`
   });
 }
 
@@ -1780,7 +1782,7 @@ async function requestAdvancedAiReading() {
     note: advancedAiNote,
     sections: advancedAiSections,
     system:
-      "你是传统问卜解读助手。根据用户提供的起占方式、结果、事实和问题做自然的白话解读。不要重新起卦，不要套固定栏目，不要为了分段而分段，不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。"
+      `你是传统问卜解读助手。根据用户提供的起占方式、结果、事实和问题做自然的白话解读。不要重新起卦，不要套固定栏目，不要为了分段而分段，不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。${DIRECT_READING_RULES}`
   });
 }
 
@@ -1792,7 +1794,7 @@ async function requestContextAiReading({ resultId, prompt, loading, visible, not
 
   try {
     const data = await requestJson("/api/chat/completions", {
-      temperature: 0.72,
+      temperature: 0.58,
       messages: [
         { role: "system", content: system },
         { role: "user", content: prompt }
@@ -1818,12 +1820,12 @@ async function requestAiReading() {
 
   try {
     const data = await requestJson("/api/chat/completions", {
-      temperature: 0.72,
+      temperature: 0.58,
       messages: [
         {
           role: "system",
           content:
-            "你是传统梅花易数问事助手。只根据用户提供的卦象、体用、生克、动爻和问题做自然的白话分析，像认真看完卦后直接和用户说话。不要套固定栏目，不要为了分段而分段，不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。"
+            `你是传统梅花易数问事助手。只根据用户提供的卦象、体用、生克、动爻和问题做自然的白话分析，像认真看完卦后直接和用户说话。不要套固定栏目，不要为了分段而分段，不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。${DIRECT_READING_RULES}`
         },
         {
           role: "user",
@@ -1859,7 +1861,7 @@ async function requestFollowupFor(result) {
 
   try {
     const data = await requestJson("/api/chat/completions", {
-      temperature: 0.72,
+      temperature: 0.56,
       messages: buildFollowupMessages(result, session)
     });
     const answer = cleanAiText(data.choices?.[0]?.message?.content?.trim() || "AI 没有返回可读内容。");
@@ -2008,7 +2010,7 @@ function buildAiPrompt(result) {
     `体卦：${result.body.name}${result.body.image}，五行${result.body.element}`,
     `用卦：${result.use.name}${result.use.image}，五行${result.use.element}`,
     `体用关系：${result.relation.type}，${result.relation.text}`,
-    "请自然回复，不要套固定标题或固定模板。可以像正常对话一样分成几段，把判断、原因和建议自然讲清楚。"
+    `请自然回复，不要套固定标题或固定模板。${DIRECT_READING_RULES}`
   ].filter(Boolean).join("\n");
 }
 
@@ -2025,7 +2027,7 @@ function buildDailyAiPrompt(result) {
     result.location ? `定位：${result.location}` : locationText.value ? `定位：${locationText.value}` : "",
     result.personalInfo ? `个人信息：${result.personalInfo}` : personalInfoSummary.value ? `个人信息：${personalInfoSummary.value}` : "",
     result.reading?.length ? `当前解读：${result.reading.join("；")}` : "",
-    "请自然回复，不要套固定标题或固定模板。可以像正常对话一样分成几段，把当天提醒和可做的事自然讲清楚。"
+    `请自然回复，不要套固定标题或固定模板。${DIRECT_READING_RULES}`
   ].filter(Boolean).join("\n");
 }
 
@@ -2042,7 +2044,7 @@ function buildAdvancedAiPrompt(result) {
     result.facts?.length ? `事实：${result.facts.map((fact) => `${fact[0]}=${fact[1]}`).join("；")}` : "",
     buildAdvancedExtraSummary(result),
     result.reading?.length ? `基础断语：${result.reading.join("；")}` : "",
-    "请自然回复，不要套固定标题或固定模板。可以像正常对话一样分成几段，把判断、原因和建议自然讲清楚。"
+    `请自然回复，不要套固定标题或固定模板。${DIRECT_READING_RULES}`
   ].filter(Boolean).join("\n");
 }
 
@@ -2072,7 +2074,7 @@ function buildFollowupMessages(result, session) {
     {
       role: "system",
       content:
-        "你是传统问卜追问助手。当前问卜结果已经生成，不要重新起卦、抽签或排盘。围绕原结果自然回答用户不懂的地方，像继续聊天一样回应。若用户明显问另一个独立新事件，提醒一事一占，建议重新问卜。不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。"
+        `你是传统问卜追问助手。当前问卜结果已经生成，不要重新起卦、抽签或排盘。围绕原结果自然回答用户不懂的地方，像继续聊天一样回应。若用户明显问另一个独立新事件，提醒一事一占，建议重新问卜。不要宣称绝对准确，不要给医疗、法律、投资等高风险决定下定论。${DIRECT_READING_RULES}`
     },
     {
       role: "user",
@@ -2087,7 +2089,7 @@ function buildFollowupContext(result, session) {
     "当前问卜上下文：",
     buildFollowupBaseContext(result),
     session.reading ? `此前 AI 深断：${session.reading}` : "此前 AI 深断：暂无，按卦象和规则断语回答。",
-    "回答要求：直接回答用户追问，不要重复完整结果，不要套固定栏目。"
+    `回答要求：直接回答用户追问，不要重复完整结果，不要套固定栏目。${DIRECT_READING_RULES}`
   ].filter(Boolean).join("\n");
 }
 
