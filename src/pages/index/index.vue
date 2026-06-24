@@ -805,6 +805,8 @@ const API_BASE_URL = "https://wenshi.cccode.com.cn";
 const PUSH_WORKER_URL = "/push-worker.js?v=20260624";
 const DIRECT_READING_RULES =
   "回答风格要直接。第一句话必须先给明确判断，例如“建议推进”“先别动”“偏吉但要慢”“不建议现在做”，不要以“可能、也许、看情况”开头。后面再讲原因和动作。少用模棱两可词；如果卦象确实矛盾，也要说明主倾向和次要风险。必须给出一到三个具体行动建议。可以提醒占卜不是绝对，但不要反复免责声明。";
+const PERSONAL_READING_RULES =
+  "这是个人盘，不要按普通一事一占回答。必须分清长期底盘和当前阶段，直接覆盖资产、事业、健康作息、关系、迁移环境、主要风险、机会窗口。每一项都要给明确倾向和可执行建议，不要只说泛泛的性格描述。健康和资产只能做趋势提醒，不给医疗诊断或具体投资指令。";
 const categories = ["事业", "感情", "财运", "合作", "出行", "其他"];
 const sectionTabs = [
   { key: "daily", label: "今日" },
@@ -2032,6 +2034,7 @@ function buildDailyAiPrompt(result) {
 }
 
 function buildAdvancedAiPrompt(result) {
+  const personalRules = result.type === "personal" ? PERSONAL_READING_RULES : "";
   return [
     `方式：${result.methodLabel}`,
     `问题：${result.question}`,
@@ -2044,11 +2047,19 @@ function buildAdvancedAiPrompt(result) {
     result.facts?.length ? `事实：${result.facts.map((fact) => `${fact[0]}=${fact[1]}`).join("；")}` : "",
     buildAdvancedExtraSummary(result),
     result.reading?.length ? `基础断语：${result.reading.join("；")}` : "",
+    personalRules,
     `请自然回复，不要套固定标题或固定模板。${DIRECT_READING_RULES}`
   ].filter(Boolean).join("\n");
 }
 
 function buildAdvancedExtraSummary(result) {
+  if (result.extra?.lifeDomains?.length) {
+    const domains = `人生领域：${result.extra.lifeDomains.map((item) => `${item.name}=${item.verdict}`).join("；")}`;
+    const timeline = result.extra.timeline?.length
+      ? `后续轨迹：${result.extra.timeline.map((item) => `${item.range}${item.verdict}`).join("；")}`
+      : "";
+    return [domains, timeline].filter(Boolean).join("\n");
+  }
   if (result.extra?.plate?.length) {
     return `九宫：${result.extra.plate.map((item) => `${item.palace}${item.door}/${item.star}/${item.god}`).join("；")}`;
   }
@@ -2059,7 +2070,7 @@ function buildAdvancedExtraSummary(result) {
     return `小六壬：${result.extra.state.name}，${result.extra.state.nature}`;
   }
   if (result.extra?.stem && result.extra?.branch) {
-    return `个人盘：${result.extra.stem}${result.extra.branch}，生肖${result.extra.zodiac}，五行${result.extra.element}`;
+    return `个人盘：${result.extra.stem}${result.extra.branch}，生肖${result.extra.zodiac}，五行${result.extra.element}，年龄阶段${result.extra.phase?.name || ""}`;
   }
   return "";
 }

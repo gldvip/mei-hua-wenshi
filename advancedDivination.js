@@ -4,6 +4,48 @@ const BRANCHES = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申",
 const STEMS = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
 const ZODIACS = ["鼠", "牛", "虎", "兔", "龙", "蛇", "马", "羊", "猴", "鸡", "狗", "猪"];
 const STEM_ELEMENTS = { 甲: "木", 乙: "木", 丙: "火", 丁: "火", 戊: "土", 己: "土", 庚: "金", 辛: "金", 壬: "水", 癸: "水" };
+const ELEMENT_PROFILE = {
+  木: {
+    core: "靠成长、学习、连接和持续扩张起势",
+    assets: "资产更适合靠长期技能、客户资源、内容/产品复利积累，不宜追短线暴利。",
+    career: "事业主线在开拓、教育、策划、产品、咨询、资源整合一类更容易走出来。",
+    health: "健康风险偏在肝胆、眼疲劳、筋膜紧张和情绪郁结；关键是规律运动和少熬夜。",
+    relation: "关系里重视共同成长，怕被压制；长期要找能一起升级的人。",
+    move: "适合去更有机会密度、学习资源和人脉流动的地方。"
+  },
+  火: {
+    core: "靠表达、曝光、判断力和影响力起势",
+    assets: "资产更适合来自品牌、流量、销售、管理溢价，不宜情绪化重仓。",
+    career: "事业主线在传播、销售、管理、审美、技术呈现、公众表达上更容易见成绩。",
+    health: "健康风险偏在心火、睡眠、炎症和压力上头；关键是降燥、稳定作息。",
+    relation: "关系里热得快也容易急，长期要避免强势推进和情绪压迫。",
+    move: "适合去曝光机会多、竞争强但上升通道清晰的环境。"
+  },
+  土: {
+    core: "靠稳定、承载、管理和资源沉淀起势",
+    assets: "资产更适合不动产、稳健现金流、组织资源和长期配置，不宜频繁换方向。",
+    career: "事业主线在运营、管理、地产、供应链、财务、人事、平台型岗位更容易沉淀。",
+    health: "健康风险偏在脾胃、代谢、湿气和久坐；关键是饮食节制和体重管理。",
+    relation: "关系里重责任和安全感，但容易把压力都扛在自己身上。",
+    move: "适合在稳定城市或稳定组织里做深，不宜长期漂浮。"
+  },
+  金: {
+    core: "靠规则、专业、效率和决断力起势",
+    assets: "资产更适合靠专业壁垒、制度红利、清晰交易和纪律配置，不宜人情式投资。",
+    career: "事业主线在技术、金融、法务、风控、工程、数据、管理制度上更容易出头。",
+    health: "健康风险偏在呼吸道、皮肤、肩颈和过度紧绷；关键是放松和有氧。",
+    relation: "关系里标准高、边界强，长期要学会表达柔软，不只讲对错。",
+    move: "适合规则清楚、效率高、资源分配透明的城市和行业。"
+  },
+  水: {
+    core: "靠信息、流动、洞察和顺势判断起势",
+    assets: "资产更适合信息差、跨区域机会、流动性配置和灵活副业，不宜被单一资产锁死。",
+    career: "事业主线在信息、交易、研究、技术、跨境、物流、服务和变化型行业更容易打开。",
+    health: "健康风险偏在肾水、泌尿、内分泌、焦虑和寒湿；关键是保暖、睡眠和稳定节律。",
+    relation: "关系里敏感、会观察，但容易想太多；长期要把话说清楚。",
+    move: "适合流动性强、信息开放、水边或交通便利的地方。"
+  }
+};
 const TRIGRAMS = [
   { name: "坤", image: "地", lines: "000", element: "土" },
   { name: "艮", image: "山", lines: "001", element: "土" },
@@ -177,6 +219,12 @@ function castPersonal(payload) {
   const element = STEM_ELEMENTS[stem];
   const season = getSeasonElement(date.getMonth() + 1);
   const question = normalizeQuestion(payload.question) || "个人阶段趋势";
+  const age = Math.max(0, new Date().getFullYear() - year);
+  const profile = ELEMENT_PROFILE[element] || ELEMENT_PROFILE.土;
+  const seasonRelation = element === season ? "同气较旺" : `${element}遇${season}，需要借环境调节`;
+  const phase = getLifePhase(age);
+  const lifeDomains = buildLifeDomains({ profile, element, season, age, phase, payload });
+  const timeline = buildLifeTimeline({ age, profile, phase });
 
   return {
     result: baseResult({
@@ -184,22 +232,72 @@ function castPersonal(payload) {
       methodLabel: "个人盘",
       question,
       payload,
-      verdict: element === season ? "本气较旺" : "需调节节奏",
-      summary: `${stem}${branch}年，生肖${zodiac}，年干五行为${element}，出生季节偏${season}。`,
+      verdict: element === season ? "人生主线偏主动开局" : "人生主线靠节奏调配",
+      summary: `${stem}${branch}年，生肖${zodiac}，年干五行为${element}，出生季节偏${season}。主线是：${profile.core}。当前处在${phase.name}。`,
       facts: [
         ["出生", `${birthDate} ${payload.birthTime || "12:00"}`],
+        ["年龄阶段", `${age}岁，${phase.name}`],
         ["年柱", `${stem}${branch}`],
         ["生肖", zodiac],
-        ["五行提示", `${element}遇${season}`]
+        ["五行提示", seasonRelation],
+        ["人生主线", profile.core]
       ],
       reading: [
-        `个人盘用于看长期背景，不适合替代一事一卦。此盘年气为${element}，季节气为${season}。`,
-        element === season ? "本气较旺，适合主动定方向，但要避免一股劲走到底。" : "本气与季节不完全同频，阶段推进更需要节奏、资源和环境配合。",
-        "若要看某件具体事情，建议回到今日签、梅花、小六壬、六爻或奇门。"
+        `直接看，你的底盘不是靠运气突然暴富型，而是「${profile.core}」的路线。`,
+        `${phase.name}的重点是：${phase.focus}`,
+        `资产：${profile.assets}`,
+        `事业：${profile.career}`,
+        `健康：${profile.health}`,
+        `关系：${profile.relation}`,
+        `迁移/环境：${profile.move}`,
+        `后续轨迹：${timeline.map((item) => `${item.range}${item.verdict}`).join("；")}`
       ],
-      extra: { stem, branch, zodiac, element, season }
+      extra: { stem, branch, zodiac, element, season, age, phase, lifeDomains, timeline }
     })
   };
+}
+
+function getLifePhase(age) {
+  if (age < 18) return { name: "根基形成期", focus: "先把学习、身体和家庭支持打稳，不急着定终局。" };
+  if (age < 25) return { name: "方向试错期", focus: "多试方向，尽快找到能长期积累的能力，不要过早被单一路径锁死。" };
+  if (age < 35) return { name: "事业定盘期", focus: "要把专业、城市、圈层和赚钱方式定下来，少频繁重开。" };
+  if (age < 45) return { name: "资产放大期", focus: "重点从单纯赚钱转向资产结构、团队杠杆和抗风险。" };
+  if (age < 60) return { name: "守成转化期", focus: "减少无效消耗，把资源放到稳定现金流、健康和下一代/传承。" };
+  return { name: "收束享用期", focus: "以健康、稳定现金流和家庭关系为主，不再做高波动赌局。" };
+}
+
+function buildLifeDomains({ profile, element, season, age, phase, payload }) {
+  const focusAreas = Array.isArray(payload.tags) ? payload.tags : [];
+  const currentFocus = String(payload.question || "").trim();
+  return [
+    { name: "资产", verdict: profile.assets, priority: focusAreas.includes("财运") || currentFocus.includes("钱") ? "high" : "normal" },
+    { name: "事业", verdict: profile.career, priority: focusAreas.includes("事业") || currentFocus.includes("事业") || currentFocus.includes("工作") ? "high" : "normal" },
+    { name: "健康", verdict: profile.health, priority: currentFocus.includes("健康") ? "high" : age >= 35 ? "medium" : "normal" },
+    { name: "关系", verdict: profile.relation, priority: focusAreas.includes("感情") || currentFocus.includes("感情") ? "high" : "normal" },
+    { name: "迁移", verdict: profile.move, priority: currentFocus.includes("城市") || currentFocus.includes("换") ? "high" : "normal" },
+    { name: "阶段", verdict: `${phase.name}：${phase.focus}`, priority: "high" },
+    { name: "风险", verdict: element === season ? "最大风险是过旺而急，容易一条路冲太猛。" : `最大风险是节奏不稳，${element}气要借${season}气调平。`, priority: "high" }
+  ];
+}
+
+function buildLifeTimeline({ age, profile, phase }) {
+  const nextAge = age + 3;
+  const midAge = age + 7;
+  const corePath = profile.core.replace(/^靠/, "").replace(/起势$/, "");
+  return [
+    {
+      range: "近1-3年：",
+      verdict: `${phase.focus}不宜频繁推翻重来，先把一条能复利的线做实。`
+    },
+    {
+      range: "3-7年：",
+      verdict: `适合把${corePath}转成稳定收入、职位权重或资产结构。`
+    },
+    {
+      range: "7年后：",
+      verdict: `${nextAge >= 35 || midAge >= 35 ? "重点会从拼机会转向守资产、控风险和健康管理。" : "真正的上升窗口会来自前面几年积累出的能力和圈层。"}`
+    }
+  ];
 }
 
 function baseResult({ type, methodLabel, question, payload, verdict, summary, facts, reading, extra }) {
