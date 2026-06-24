@@ -1,4 +1,7 @@
 const http = require("node:http");
+const fs = require("node:fs");
+const path = require("node:path");
+const webpush = require("web-push");
 const { castDivination } = require("./divination");
 const { castDailyOracle } = require("./dailyOracle");
 const { castAdvancedDivination } = require("./advancedDivination");
@@ -7,6 +10,9 @@ const userStore = require("./userStore");
 const PORT = Number(process.env.PORT || 8787);
 const MAX_BODY_SIZE = 1024 * 1024;
 const MINI_PROGRAM_REVIEW_MODE = String(process.env.MINI_PROGRAM_REVIEW_MODE || "").toLowerCase() === "true";
+const DATA_DIR = path.dirname(process.env.DATA_FILE || path.join(__dirname, "app-data.json"));
+const VAPID_KEY_FILE = process.env.VAPID_KEY_FILE || path.join(DATA_DIR, "vapid-keys.json");
+let cachedVapidKeys = null;
 
 function getAiEndpoint() {
   const baseUrl = String(process.env.AI_BASE_URL || "").replace(/\/$/, "");
@@ -20,6 +26,30 @@ function sendJson(response, statusCode, payload) {
     "Cache-Control": "no-store"
   });
   response.end(JSON.stringify(payload));
+}
+
+function getVapidKeys() {
+  if (cachedVapidKeys) return cachedVapidKeys;
+  if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+    cachedVapidKeys = {
+      publicKey: process.env.VAPID_PUBLIC_KEY,
+      privateKey: process.env.VAPID_PRIVATE_KEY
+    };
+  } else {
+    try {
+      cachedVapidKeys = JSON.parse(fs.readFileSync(VAPID_KEY_FILE, "utf8"));
+    } catch {
+      cachedVapidKeys = webpush.generateVAPIDKeys();
+      fs.mkdirSync(path.dirname(VAPID_KEY_FILE), { recursive: true });
+      fs.writeFileSync(VAPID_KEY_FILE, JSON.stringify(cachedVapidKeys, null, 2));
+    }
+  }
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT || "mailto:admin@wenshi.cccode.com.cn",
+    cachedVapidKeys.publicKey,
+    cachedVapidKeys.privateKey
+  );
+  return cachedVapidKeys;
 }
 
 function readBody(request) {
@@ -317,6 +347,68 @@ function handlePersonalMemory(request, response) {
   sendJson(response, output.error ? 401 : 200, output);
 }
 
+async function handlePushSubscribe(request, response) {
+  const payload = await readJsonPayload(request, response);
+  if (!payload) return;
+  const output = userStore.savePushSubscription(getBearerToken(request), payload);
+  sendJson(response, output.error ? 401 : 200, output);
+}
+
+async function handlePushUnsubscribe(request, response) {
+  const payload = await readJsonPayload(request, response);
+  if (!payload) return;
+  const output = userStore.removePushSubscription(getBearerToken(request), payload);
+  sendJson(response, output.error ? 401 : 200, output);
+}
+
+function buildPushReminder(memory) {
+  const notice = memory?.notices?.[0];
+  if (notice) {
+    return {
+      title: notice.title || "玄问临占提醒",
+      body: notice.body || "你的个人盘有新的主动提醒。",
+      url: "/"
+    };
+  }
+  return {
+    title: "玄问临占提醒已开启",
+    body: "之后个人盘形成新的提醒时，可以通过浏览器通知发给你。",
+    url: "/"
+  };
+}
+
+async function sendPushMessage(record, message, data) {
+  try {
+    await webpush.sendNotification(record.subscription, JSON.stringify(message));
+    return { ok: true };
+  } catch (error) {
+    if ([404, 410].includes(error.statusCode)) {
+      userStore.removePushSubscriptionByEndpoint(data, record.subscription?.endpoint);
+    }
+    return { ok: false, error: error.message || "发送失败" };
+  }
+}
+
+async function handlePushTest(request, response) {
+  getVapidKeys();
+  const output = userStore.getPushSubscriptions(getBearerToken(request));
+  if (output.error) {
+    sendJson(response, 401, { error: output.error });
+    return;
+  }
+  if (!output.subscriptions.length) {
+    sendJson(response, 400, { error: "当前设备还没有开启推送。" });
+    return;
+  }
+  const memoryOutput = userStore.getPersonalMemory(getBearerToken(request));
+  const message = buildPushReminder(memoryOutput.memory);
+  const results = await Promise.all(output.subscriptions.map((record) => sendPushMessage(record, message, output.data)));
+  sendJson(response, 200, {
+    sent: results.filter((item) => item.ok).length,
+    failed: results.filter((item) => !item.ok).length
+  });
+}
+
 const server = http.createServer(async (request, response) => {
   const { pathname } = new URL(request.url, "http://localhost");
 
@@ -360,6 +452,26 @@ const server = http.createServer(async (request, response) => {
 
   if (request.method === "GET" && pathname === "/api/personal-memory") {
     handlePersonalMemory(request, response);
+    return;
+  }
+
+  if (request.method === "GET" && pathname === "/api/push/public-key") {
+    sendJson(response, 200, { publicKey: getVapidKeys().publicKey });
+    return;
+  }
+
+  if (request.method === "POST" && pathname === "/api/push/subscribe") {
+    await handlePushSubscribe(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && pathname === "/api/push/unsubscribe") {
+    await handlePushUnsubscribe(request, response);
+    return;
+  }
+
+  if (request.method === "POST" && pathname === "/api/push/test") {
+    await handlePushTest(request, response);
     return;
   }
 

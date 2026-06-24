@@ -10,6 +10,7 @@ RUN npm run build:h5
 FROM nginx:alpine
 
 COPY --from=builder /app/dist/build/h5 /usr/share/nginx/html
+COPY push-worker.js /usr/share/nginx/html/push-worker.js
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

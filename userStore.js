@@ -19,6 +19,7 @@ function normalizeData(data) {
     users: Array.isArray(data.users) ? data.users : [],
     profiles: Array.isArray(data.profiles) ? data.profiles : [],
     sessions: Array.isArray(data.sessions) ? data.sessions : [],
+    pushSubscriptions: Array.isArray(data.pushSubscriptions) ? data.pushSubscriptions : [],
     dailyOracles: Array.isArray(data.dailyOracles) ? data.dailyOracles : [],
     divinationRecords: Array.isArray(data.divinationRecords) ? data.divinationRecords : []
   };
@@ -195,6 +196,70 @@ function updatePersonalInfo(token, payload) {
   return {
     user: publicUser(auth.user)
   };
+}
+
+function normalizePushSubscription(value = {}) {
+  const endpoint = String(value.endpoint || "").trim();
+  const keys = value.keys && typeof value.keys === "object" ? value.keys : {};
+  return {
+    endpoint,
+    expirationTime: value.expirationTime || null,
+    keys: {
+      p256dh: String(keys.p256dh || "").trim(),
+      auth: String(keys.auth || "").trim()
+    }
+  };
+}
+
+function savePushSubscription(token, payload) {
+  const auth = getUserByToken(token);
+  if (auth.error) return auth;
+
+  const subscription = normalizePushSubscription(payload.subscription || payload);
+  if (!subscription.endpoint || !subscription.keys.p256dh || !subscription.keys.auth) {
+    return { error: "推送订阅信息不完整。" };
+  }
+
+  const now = new Date().toISOString();
+  auth.data.pushSubscriptions = auth.data.pushSubscriptions.filter((item) => item.endpoint !== subscription.endpoint);
+  auth.data.pushSubscriptions.push({
+    id: crypto.randomUUID(),
+    userId: auth.user.id,
+    subscription,
+    userAgent: String(payload.userAgent || "").slice(0, 160),
+    createdAt: now,
+    updatedAt: now
+  });
+  writeData(auth.data);
+  return { ok: true };
+}
+
+function removePushSubscription(token, payload) {
+  const auth = getUserByToken(token);
+  if (auth.error) return auth;
+  const endpoint = String(payload.endpoint || payload.subscription?.endpoint || "").trim();
+  const before = auth.data.pushSubscriptions.length;
+  auth.data.pushSubscriptions = auth.data.pushSubscriptions.filter((item) =>
+    !(item.userId === auth.user.id && item.subscription?.endpoint === endpoint)
+  );
+  if (auth.data.pushSubscriptions.length !== before) writeData(auth.data);
+  return { ok: true };
+}
+
+function getPushSubscriptions(token) {
+  const auth = getUserByToken(token);
+  if (auth.error) return auth;
+  return {
+    data: auth.data,
+    user: auth.user,
+    subscriptions: auth.data.pushSubscriptions.filter((item) => item.userId === auth.user.id)
+  };
+}
+
+function removePushSubscriptionByEndpoint(data, endpoint) {
+  const before = data.pushSubscriptions.length;
+  data.pushSubscriptions = data.pushSubscriptions.filter((item) => item.subscription?.endpoint !== endpoint);
+  if (data.pushSubscriptions.length !== before) writeData(data);
 }
 
 function getPersonalMemory(token) {
@@ -419,7 +484,11 @@ module.exports = {
   castDivination,
   getPersonalMemory,
   getMe,
+  getPushSubscriptions,
   login,
   register,
+  removePushSubscription,
+  removePushSubscriptionByEndpoint,
+  savePushSubscription,
   updatePersonalInfo,
 };

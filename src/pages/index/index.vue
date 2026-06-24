@@ -175,6 +175,25 @@
         </view>
         <text v-if="personalMemoryError" class="chat-error">{{ personalMemoryError }}</text>
       </view>
+      <view class="push-panel">
+        <view class="memory-head">
+          <view>
+            <text class="section-title">主动推送</text>
+            <text class="meta">{{ pushStatusText }}</text>
+          </view>
+          <text class="push-badge" :class="{ 'is-on': pushSubscribed }">{{ pushSubscribed ? "已开启" : "未开启" }}</text>
+        </view>
+        <text class="memory-summary">开启后，个人盘形成新的提醒时，可以通过浏览器通知推给你。iPhone 需要先把网站添加到主屏幕后再开启。</text>
+        <view class="push-actions">
+          <button v-if="!pushSubscribed" class="primary-action compact-action" :disabled="pushLoading || !pushSupported" @click="enableWebPush">
+            <text>{{ pushLoading ? "处理中" : "开启推送" }}</text>
+            <text class="arrow-line"></text>
+          </button>
+          <button v-else class="plain-wide-button" :disabled="pushLoading" @click="disableWebPush">关闭推送</button>
+          <button class="plain-button small" :disabled="pushLoading || !pushSubscribed" @click="sendTestPush">测试</button>
+        </view>
+        <text v-if="pushError" class="chat-error">{{ pushError }}</text>
+      </view>
       <view class="daily-extra-grid">
         <view class="field compact">
           <text class="label">称呼</text>
@@ -775,6 +794,7 @@
 import { computed, defineComponent, h, ref } from "vue";
 
 const API_BASE_URL = "https://wenshi.cccode.com.cn";
+const PUSH_WORKER_URL = "/push-worker.js?v=20260624";
 const categories = ["事业", "感情", "财运", "合作", "出行", "其他"];
 const sectionTabs = [
   { key: "daily", label: "今日" },
@@ -1032,6 +1052,11 @@ const onboardingLoading = ref(false);
 const onboardingError = ref("");
 const onboardingCandidate = ref(null);
 const onboardingDone = ref(false);
+const pushSupported = ref(false);
+const pushPermission = ref("default");
+const pushSubscribed = ref(false);
+const pushLoading = ref(false);
+const pushError = ref("");
 const autoLocation = ref(loadJsonStorage("wenshi-auto-location", null));
 const locationLoading = ref(false);
 const locationError = ref("");
@@ -1052,6 +1077,12 @@ const birthCalendarLabel = computed(() => birthCalendarOptions[birthCalendarInde
 const genderIndex = computed(() => Math.max(0, genderOptions.findIndex((item) => item.value === personalGender.value)));
 const genderLabel = computed(() => genderOptions[genderIndex.value]?.label || "不限定");
 const onboardingPreviewItems = computed(() => buildOnboardingPreview(onboardingCandidate.value));
+const pushStatusText = computed(() => {
+  if (!pushSupported.value) return "当前浏览器暂不支持 Web Push";
+  if (pushSubscribed.value) return "这台设备会接收个人盘提醒";
+  if (pushPermission.value === "denied") return "浏览器已拒绝通知权限";
+  return "需要你授权浏览器通知";
+});
 const personalNotices = computed(() => personalMemory.value?.notices || []);
 const memoryStats = computed(() => [
   ...(personalMemory.value?.categoryStats || []).slice(0, 3),
@@ -1207,6 +1238,7 @@ function onGenderChange(event) {
 function syncAccountContext() {
   dailyOracle.value = loadDailyOracle();
   if (!autoLocation.value) requestLocation({ silent: true });
+  refreshPushStatus();
 }
 
 function toggleTag(tag) {
@@ -1362,6 +1394,112 @@ function getBirthCalendarLabel(value) {
 
 function getGenderLabel(value) {
   return genderOptions.find((item) => item.value === value)?.label || "不限定";
+}
+
+function isWebPushSupported() {
+  return typeof window !== "undefined"
+    && typeof navigator !== "undefined"
+    && "serviceWorker" in navigator
+    && "PushManager" in window
+    && "Notification" in window;
+}
+
+async function refreshPushStatus() {
+  pushSupported.value = isWebPushSupported();
+  if (!pushSupported.value) {
+    pushPermission.value = "unsupported";
+    pushSubscribed.value = false;
+    return;
+  }
+  pushPermission.value = Notification.permission;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    const subscription = await registration?.pushManager.getSubscription();
+    pushSubscribed.value = Boolean(subscription);
+  } catch {
+    pushSubscribed.value = false;
+  }
+}
+
+async function getPushRegistration() {
+  if (!isWebPushSupported()) throw new Error("当前浏览器不支持 Web Push。");
+  if (typeof window !== "undefined" && !window.isSecureContext) {
+    throw new Error("Web Push 需要 HTTPS 环境。");
+  }
+  return navigator.serviceWorker.register(PUSH_WORKER_URL, { scope: "/", updateViaCache: "none" });
+}
+
+async function enableWebPush() {
+  pushError.value = "";
+  pushLoading.value = true;
+  try {
+    pushSupported.value = isWebPushSupported();
+    if (!pushSupported.value) throw new Error("当前浏览器暂不支持 Web Push。iPhone 需要先添加到主屏幕。");
+    const permission = await Notification.requestPermission();
+    pushPermission.value = permission;
+    if (permission !== "granted") throw new Error("你没有允许通知权限。");
+
+    const registration = await getPushRegistration();
+    const existing = await registration.pushManager.getSubscription();
+    const { publicKey } = await requestGet("/api/push/public-key");
+    const subscription = existing || await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey)
+    });
+    await requestJson("/api/push/subscribe", {
+      subscription: subscription.toJSON(),
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : ""
+    });
+    pushSubscribed.value = true;
+    pushError.value = "推送已开启，可以点测试确认。";
+  } catch (error) {
+    pushError.value = `开启失败：${error.message}`;
+  } finally {
+    pushLoading.value = false;
+  }
+}
+
+async function disableWebPush() {
+  pushError.value = "";
+  pushLoading.value = true;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration("/");
+    const subscription = await registration?.pushManager.getSubscription();
+    if (subscription) {
+      await requestJson("/api/push/unsubscribe", { endpoint: subscription.endpoint });
+      await subscription.unsubscribe();
+    }
+    pushSubscribed.value = false;
+    pushError.value = "这台设备的推送已关闭。";
+  } catch (error) {
+    pushError.value = `关闭失败：${error.message}`;
+  } finally {
+    pushLoading.value = false;
+  }
+}
+
+async function sendTestPush() {
+  pushError.value = "";
+  pushLoading.value = true;
+  try {
+    const payload = await requestJson("/api/push/test", {});
+    pushError.value = payload.sent ? "测试推送已发送。" : "没有成功发送到当前设备。";
+  } catch (error) {
+    pushError.value = `测试失败：${error.message}`;
+  } finally {
+    pushLoading.value = false;
+  }
+}
+
+function urlBase64ToUint8Array(value) {
+  const padding = "=".repeat((4 - value.length % 4) % 4);
+  const base64 = `${value}${padding}`.replace(/-/g, "+").replace(/_/g, "/");
+  const raw = window.atob(base64);
+  const output = new Uint8Array(raw.length);
+  for (let index = 0; index < raw.length; index += 1) {
+    output[index] = raw.charCodeAt(index);
+  }
+  return output;
 }
 
 async function loadPersonalMemory() {
@@ -2660,6 +2798,40 @@ button:active {
     linear-gradient(135deg, rgba(226, 191, 112, 0.12), transparent 50%),
     linear-gradient(315deg, rgba(145, 209, 189, 0.09), transparent 55%),
     rgba(7, 11, 10, 0.48);
+}
+
+.push-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(145, 209, 189, 0.18);
+  border-radius: 8px;
+  padding: 13px;
+  background:
+    linear-gradient(135deg, rgba(145, 209, 189, 0.1), transparent 50%),
+    rgba(7, 11, 10, 0.42);
+}
+
+.push-badge {
+  flex: 0 0 auto;
+  border: 1px solid rgba(181, 172, 153, 0.2);
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: #b5ac99;
+  font-size: 12px;
+  background: rgba(181, 172, 153, 0.06);
+}
+
+.push-badge.is-on {
+  border-color: rgba(145, 209, 189, 0.32);
+  color: #91d1bd;
+  background: rgba(145, 209, 189, 0.1);
+}
+
+.push-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
 }
 
 .onboarding-card {
