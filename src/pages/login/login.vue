@@ -237,7 +237,7 @@ function goHome() {
   padding: 0 12px;
   color: #fff7df;
   background: rgba(7, 11, 10, 0.56);
-  font-size: 15px;
+  font-size: 16px;
 }
 
 .error-text {

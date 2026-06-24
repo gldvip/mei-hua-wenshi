@@ -2661,6 +2661,7 @@ button:active {
   border: 1px solid rgba(226, 191, 112, 0.2);
   border-radius: 8px;
   color: #fff8e4;
+  font-size: 16px;
   outline: none;
   background:
     linear-gradient(180deg, rgba(255, 248, 228, 0.035), rgba(255, 248, 228, 0.01)),
@@ -2914,7 +2915,7 @@ button:active {
   border-radius: 8px;
   padding: 10px 11px;
   color: #fff7df;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.55;
   background: rgba(5, 8, 7, 0.5);
 }
@@ -3969,12 +3970,28 @@ button:active {
 }
 
 @media (max-width: 859px) {
+  :global(html),
+  :global(body),
+  :global(#app) {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+    overscroll-behavior-y: none;
+  }
+
   :global(body) {
     background-attachment: scroll, scroll, scroll, scroll, scroll, scroll, scroll;
   }
 
   .page-shell {
+    height: 100%;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
     padding-bottom: calc(84px + env(safe-area-inset-bottom));
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   .mobile-bottom-nav {
@@ -3983,7 +4000,7 @@ button:active {
     right: 0;
     bottom: 0;
     z-index: 30;
-    transform: translate3d(0, 0, 0);
+    transform: translateZ(0);
     will-change: transform;
     contain: layout paint;
     display: grid;
