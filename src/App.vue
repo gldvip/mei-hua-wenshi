@@ -45,7 +45,6 @@ page {
   min-height: 100%;
   overscroll-behavior-y: none;
   -webkit-text-size-adjust: 100%;
-  touch-action: manipulation;
 }
 
 button,

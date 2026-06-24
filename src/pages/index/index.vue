@@ -3970,25 +3970,15 @@ button:active {
 }
 
 @media (max-width: 859px) {
-  :global(html),
-  :global(body),
-  :global(#app) {
-    width: 100%;
-    height: 100%;
-    min-height: 100%;
-    overflow: hidden;
-    overscroll-behavior-y: none;
-  }
-
   :global(body) {
+    overflow-x: hidden;
+    overflow-y: auto;
     background-attachment: scroll, scroll, scroll, scroll, scroll, scroll, scroll;
   }
 
   .page-shell {
-    height: 100%;
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
     padding-bottom: calc(84px + env(safe-area-inset-bottom));
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
@@ -4078,10 +4068,11 @@ button:active {
 @media (min-width: 860px) {
   .page-shell {
     display: grid;
-    grid-template-columns: minmax(320px, 410px) minmax(0, 1fr);
+    grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
     align-items: start;
-    gap: 16px;
-    width: min(100%, 1160px);
+    align-content: start;
+    gap: 18px;
+    width: min(100%, 1180px);
     padding: 24px;
   }
 
@@ -4099,7 +4090,6 @@ button:active {
 
   .personal-panel,
   .tag-panel,
-  .daily-panel,
   .method-guide {
     grid-column: 1;
     margin-bottom: 0;
@@ -4113,26 +4103,27 @@ button:active {
     grid-row: 3;
   }
 
-  .daily-panel {
+  .method-guide {
     grid-row: 4;
   }
 
-  .method-guide {
-    grid-row: 5;
-  }
-
+  .daily-panel,
   .question-panel,
   .result-panel {
     grid-column: 2;
     margin-bottom: 0;
   }
 
-  .question-panel {
+  .daily-panel {
     grid-row: 2;
   }
 
+  .question-panel {
+    grid-row: 3;
+  }
+
   .result-panel {
-    grid-row: 3 / span 3;
+    grid-row: 4 / span 3;
     margin-top: 0;
   }
 
@@ -4169,12 +4160,43 @@ button:active {
 
 @media (min-width: 1180px) {
   .page-shell {
-    grid-template-columns: 420px minmax(0, 1fr);
-    gap: 18px;
+    grid-template-columns: 330px 390px minmax(0, 1fr);
+    gap: 20px;
+    width: min(100%, 1360px);
+  }
+
+  .personal-panel {
+    grid-column: 1;
+    grid-row: 2 / span 2;
+  }
+
+  .tag-panel {
+    grid-column: 1;
+    grid-row: 4;
+  }
+
+  .method-guide {
+    grid-column: 2;
+    grid-row: 2 / span 4;
+  }
+
+  .daily-panel {
+    grid-column: 3;
+    grid-row: 2;
+  }
+
+  .question-panel {
+    grid-column: 3;
+    grid-row: 3;
+  }
+
+  .result-panel {
+    grid-column: 3;
+    grid-row: 4 / span 3;
   }
 
   .method-picker {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 
