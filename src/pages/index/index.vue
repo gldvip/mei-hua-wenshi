@@ -3,9 +3,7 @@
     <view class="topbar">
       <view class="brand-lockup">
         <view class="brand-mark">
-          <text class="mark-line yang"></text>
-          <text class="mark-line yin"></text>
-          <text class="mark-line yang"></text>
+          <image class="brand-icon" src="/static/app-icon-bagua.png" mode="aspectFill" />
         </view>
         <view>
           <text class="eyebrow">MEI HUA WEN SHI</text>
@@ -16,9 +14,7 @@
       <view class="topbar-actions">
         <button v-if="!showReviewMode && user" class="plain-button small topbar-logout" @click="logout">退出</button>
         <button v-if="!showReviewMode" class="icon-button" aria-label="打开记录" @click="setHistoryOpen(true)">
-          <text class="menu-line"></text>
-          <text class="menu-line"></text>
-          <text class="menu-line"></text>
+          <text class="history-icon"></text>
         </button>
       </view>
     </view>
@@ -395,7 +391,7 @@
               @input="setFollowupDraft(dailyOracle.id, $event.detail.value)"
             />
             <button class="send-button" :disabled="isFollowupLoading(dailyOracle.id)" aria-label="发送追问" @click="requestFollowupFor(dailyOracle)">
-              <text></text>
+              <text class="send-icon"></text>
             </button>
           </view>
           <text class="chat-error">{{ getFollowupError(dailyOracle.id) }}</text>
@@ -595,7 +591,7 @@
                 @input="setFollowupDraft(advancedResult.id, $event.detail.value)"
               />
               <button class="send-button" :disabled="isFollowupLoading(advancedResult.id)" aria-label="发送追问" @click="requestFollowupFor(advancedResult)">
-                <text></text>
+                <text class="send-icon"></text>
               </button>
             </view>
             <text class="chat-error">{{ getFollowupError(advancedResult.id) }}</text>
@@ -748,9 +744,9 @@
               placeholder="比如：阻碍具体指什么？我接下来该主动还是等？"
               @input="setFollowupDraft(current.id, $event.detail.value)"
             />
-            <button class="send-button" :disabled="isFollowupLoading(current.id)" aria-label="发送追问" @click="requestFollowupFor(current)">
-              <text></text>
-            </button>
+              <button class="send-button" :disabled="isFollowupLoading(current.id)" aria-label="发送追问" @click="requestFollowupFor(current)">
+                <text class="send-icon"></text>
+              </button>
           </view>
           <text class="chat-error">{{ getFollowupError(current.id) }}</text>
         </view>
@@ -2379,15 +2375,14 @@ function formatDate(value) {
 }
 
 .brand-mark {
-  display: grid;
+  display: block;
   flex: 0 0 44px;
   width: 44px;
   height: 44px;
-  align-content: center;
-  gap: 5px;
   border: 1px solid rgba(218, 183, 103, 0.28);
   border-radius: 8px;
-  padding: 9px;
+  padding: 3px;
+  overflow: hidden;
   background:
     linear-gradient(145deg, rgba(230, 194, 114, 0.26), rgba(61, 105, 93, 0.18)),
     rgba(18, 22, 20, 0.92);
@@ -2397,15 +2392,11 @@ function formatDate(value) {
   animation: markBreathe 4.8s ease-in-out infinite;
 }
 
-.mark-line {
+.brand-icon {
   display: block;
-  height: 3px;
-  border-radius: 999px;
-  background: #dab767;
-}
-
-.mark-line.yin {
-  background: linear-gradient(90deg, #dab767 0 38%, transparent 38% 62%, #dab767 62% 100%);
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
 }
 
 .eyebrow,
@@ -2466,12 +2457,9 @@ button:active {
 
 .icon-button {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: grid;
   flex: 0 0 46px;
-  justify-content: center;
-  gap: 5px;
+  place-items: center;
   width: 46px;
   height: 46px;
   border: 1px solid rgba(218, 183, 103, 0.26);
@@ -2503,12 +2491,33 @@ button:active {
   border: 0;
 }
 
-.menu-line {
+.history-icon {
+  position: relative;
   display: block;
-  width: 19px;
-  height: 2px;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e2bf70;
+  border-radius: 50%;
+}
+
+.history-icon::before,
+.history-icon::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 4px;
+  width: 2px;
+  height: 7px;
   border-radius: 999px;
   background: #e2bf70;
+  transform-origin: bottom center;
+}
+
+.history-icon::after {
+  top: 9px;
+  width: 6px;
+  height: 2px;
+  transform: rotate(0deg);
 }
 
 .topbar-actions {
@@ -3506,9 +3515,22 @@ button:active {
   position: relative;
   z-index: 1;
   width: 28px;
-  height: 1px;
+  height: 2px;
   margin-right: 18px;
+  border-radius: 999px;
   background: rgba(23, 19, 13, 0.74);
+}
+
+.arrow-line::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid rgba(23, 19, 13, 0.74);
+  border-right: 2px solid rgba(23, 19, 13, 0.74);
+  transform: translateY(-50%) rotate(45deg);
 }
 
 .result-panel {
@@ -3849,9 +3871,30 @@ button:active {
   background: linear-gradient(135deg, rgba(218, 183, 103, 0.3), rgba(42, 92, 85, 0.22));
 }
 
-.send-button text {
+.send-icon {
+  position: relative;
+  display: block;
   width: 18px;
-  height: 1px;
+  height: 18px;
+}
+
+.send-icon::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-top: 2px solid #dab767;
+  border-right: 2px solid #dab767;
+  transform: rotate(45deg);
+}
+
+.send-icon::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 8px;
+  width: 15px;
+  height: 2px;
+  border-radius: 999px;
   background: #dab767;
 }
 

@@ -3,9 +3,7 @@
     <view class="login-card">
       <view class="brand-lockup">
         <view class="brand-mark">
-          <text class="mark-line yang"></text>
-          <text class="mark-line yin"></text>
-          <text class="mark-line yang"></text>
+          <image class="brand-icon" src="/static/app-icon-bagua.png" mode="aspectFill" />
         </view>
         <view>
           <text class="eyebrow">MEI HUA WEN SHI</text>
@@ -176,25 +174,21 @@ function goHome() {
 }
 
 .brand-mark {
-  display: grid;
+  display: block;
   width: 44px;
   height: 44px;
-  align-content: center;
-  gap: 6px;
   border: 1px solid rgba(226, 191, 112, 0.28);
   border-radius: 8px;
-  padding: 9px 8px;
+  padding: 3px;
+  overflow: hidden;
   background: rgba(226, 191, 112, 0.08);
 }
 
-.mark-line {
-  height: 3px;
-  border-radius: 999px;
-  background: #e2bf70;
-}
-
-.mark-line.yin {
-  background: linear-gradient(90deg, #e2bf70 0 38%, transparent 38% 62%, #e2bf70 62% 100%);
+.brand-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
 }
 
 .eyebrow,
@@ -277,9 +271,22 @@ function goHome() {
   position: relative;
   z-index: 1;
   width: 28px;
-  height: 1px;
+  height: 2px;
   margin-right: 18px;
+  border-radius: 999px;
   background: rgba(23, 19, 13, 0.74);
+}
+
+.arrow-line::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid rgba(23, 19, 13, 0.74);
+  border-right: 2px solid rgba(23, 19, 13, 0.74);
+  transform: translateY(-50%) rotate(45deg);
 }
 
 .plain-wide-button {
