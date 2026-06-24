@@ -4152,15 +4152,9 @@ button:active {
   }
 
   .tag-panel,
+  .tag-panel.is-active,
   .mobile-section {
     display: none !important;
-  }
-
-  .tag-panel.is-active {
-    display: grid !important;
-    grid-column: 1;
-    grid-row: 3;
-    margin-bottom: 0;
   }
 
   .question-panel.mobile-section.is-active,
@@ -4208,7 +4202,7 @@ button:active {
   }
 
   .method-picker {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .drawer-panel {
@@ -4223,7 +4217,7 @@ button:active {
   }
 
   .method-picker {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
