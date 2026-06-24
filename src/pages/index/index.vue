@@ -19,6 +19,18 @@
       </view>
     </view>
 
+    <view v-if="!appConfigLoading && !showReviewMode && user" class="desktop-nav">
+      <button
+        v-for="item in sectionTabs"
+        :key="item.key"
+        class="desktop-nav-item"
+        :class="{ 'is-active': activeSection === item.key }"
+        @click="activeSection = item.key"
+      >
+        {{ item.label }}
+      </button>
+    </view>
+
     <view v-if="appConfigLoading" class="auth-panel">
       <view class="panel-head compact-head">
         <view>
@@ -259,7 +271,7 @@
       <text class="error-text">{{ personalInfoError || locationError }}</text>
     </view>
 
-    <view class="tag-panel">
+    <view class="tag-panel" :class="{ 'is-active': activeSection === 'daily' || activeSection === 'mei' }">
       <view class="panel-head slim-head">
         <view>
           <text class="panel-kicker">TAGS</text>
@@ -2556,6 +2568,10 @@ button:active {
   display: none;
 }
 
+.desktop-nav {
+  display: none;
+}
+
 .question-panel,
 .auth-panel,
 .review-panel,
@@ -4068,17 +4084,64 @@ button:active {
 @media (min-width: 860px) {
   .page-shell {
     display: grid;
-    grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+    grid-template-columns: 230px minmax(0, 760px);
     align-items: start;
     align-content: start;
-    gap: 18px;
-    width: min(100%, 1180px);
+    justify-content: center;
+    gap: 20px;
+    width: min(100%, 1160px);
     padding: 24px;
   }
 
   .topbar {
     grid-column: 1 / -1;
     padding-bottom: 8px;
+  }
+
+  .desktop-nav {
+    position: sticky;
+    top: 24px;
+    display: grid;
+    grid-column: 1;
+    grid-row: 2;
+    gap: 8px;
+    border: 1px solid rgba(226, 191, 112, 0.18);
+    border-radius: 8px;
+    padding: 10px;
+    background:
+      linear-gradient(180deg, rgba(255, 248, 228, 0.06), rgba(255, 248, 228, 0.015)),
+      rgba(14, 18, 16, 0.76);
+    box-shadow: 0 24px 70px -52px rgba(0, 0, 0, 0.95);
+    backdrop-filter: blur(18px) saturate(1.05);
+  }
+
+  .desktop-nav-item {
+    min-height: 42px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    color: #c2b8a2;
+    text-align: left;
+    padding: 0 12px;
+    background: transparent;
+    font-size: 14px;
+    font-weight: 750;
+  }
+
+  .desktop-nav-item:hover {
+    border-color: rgba(226, 191, 112, 0.24);
+    color: #fff8e4;
+    background: rgba(255, 248, 228, 0.045);
+  }
+
+  .desktop-nav-item.is-active {
+    color: #101210;
+    border-color: rgba(226, 191, 112, 0.4);
+    background:
+      linear-gradient(135deg, #f0cc78, #c5964c 62%, #91d1bd),
+      #e2bf70;
+    box-shadow:
+      0 16px 30px -20px rgba(226, 191, 112, 0.78),
+      inset 0 1px 0 rgba(255, 255, 255, 0.32);
   }
 
   .auth-panel,
@@ -4088,43 +4151,38 @@ button:active {
     justify-self: center;
   }
 
-  .personal-panel,
   .tag-panel,
-  .method-guide {
+  .mobile-section {
+    display: none !important;
+  }
+
+  .tag-panel.is-active {
+    display: grid !important;
     grid-column: 1;
+    grid-row: 3;
     margin-bottom: 0;
   }
 
-  .personal-panel {
-    grid-row: 2;
-  }
-
-  .tag-panel {
-    grid-row: 3;
-  }
-
-  .method-guide {
-    grid-row: 4;
-  }
-
-  .daily-panel,
-  .question-panel,
-  .result-panel {
+  .question-panel.mobile-section.is-active,
+  .personal-panel.mobile-section.is-active,
+  .daily-panel.mobile-section.is-active,
+  .method-guide.mobile-section.is-active {
+    display: grid !important;
     grid-column: 2;
+    grid-row: 2;
     margin-bottom: 0;
   }
 
-  .daily-panel {
-    grid-row: 2;
-  }
-
-  .question-panel {
+  .result-panel.mobile-section.is-active {
+    display: block !important;
+    grid-column: 2;
     grid-row: 3;
+    margin-top: 18px;
+    margin-bottom: 0;
   }
 
-  .result-panel {
-    grid-row: 4 / span 3;
-    margin-top: 0;
+  .result-panel.is-empty.mobile-section.is-active {
+    display: grid !important;
   }
 
   .question-panel,
@@ -4160,39 +4218,8 @@ button:active {
 
 @media (min-width: 1180px) {
   .page-shell {
-    grid-template-columns: 330px 390px minmax(0, 1fr);
-    gap: 20px;
-    width: min(100%, 1360px);
-  }
-
-  .personal-panel {
-    grid-column: 1;
-    grid-row: 2 / span 2;
-  }
-
-  .tag-panel {
-    grid-column: 1;
-    grid-row: 4;
-  }
-
-  .method-guide {
-    grid-column: 2;
-    grid-row: 2 / span 4;
-  }
-
-  .daily-panel {
-    grid-column: 3;
-    grid-row: 2;
-  }
-
-  .question-panel {
-    grid-column: 3;
-    grid-row: 3;
-  }
-
-  .result-panel {
-    grid-column: 3;
-    grid-row: 4 / span 3;
+    grid-template-columns: 250px minmax(0, 820px);
+    width: min(100%, 1220px);
   }
 
   .method-picker {
